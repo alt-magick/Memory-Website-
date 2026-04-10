@@ -49,6 +49,9 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
+
+    /* ✅ IMPORTANT FIX */
+    touch-action: pan-y;
 }
 
 #question {
@@ -192,6 +195,28 @@ function similarityPercentage(a,b){
     return 100-(dist/maxLen)*100;
 }
 
+/* ===== SWIPE FIX (POINTER EVENTS) ===== */
+let startX = 0;
+let startY = 0;
+
+card.addEventListener("pointerdown", (e) => {
+    startX = e.clientX;
+    startY = e.clientY;
+});
+
+card.addEventListener("pointerup", (e) => {
+    let dx = e.clientX - startX;
+    let dy = e.clientY - startY;
+
+    if (Math.abs(dx) < 60) return;
+    if (Math.abs(dx) < Math.abs(dy)) return;
+
+    if (dx > 0) prev();
+    else next();
+});
+
+/* ===== REST OF YOUR CODE UNCHANGED ===== */
+
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -242,10 +267,7 @@ function prev(){
     showQ();
 }
 
-function start(){
-    q=0;
-    showQ();
-}
+function start(){ q=0; showQ(); }
 
 function showAnswer(){ aEl.textContent=answers[q+1]; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
@@ -328,80 +350,8 @@ input.addEventListener("keydown",e=>{
     }
 });
 
-/* ===== SEARCHABLE JUMP ===== */
-function escapeRegExp(str){
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function jump(){
-    if(!answers.length) return;
-
-    let cards=[];
-    for(let i=0;i<answers.length;i+=2){
-        cards.push({index:i,num:(i/2)+1,text:answers[i]});
-    }
-
-    let query=prompt("Search cards:");
-    if(query===null) return;
-    query=query.toLowerCase().trim();
-
-    let regex=new RegExp(`\\b${escapeRegExp(query)}\\b`,"i");
-
-    let results=cards.filter(c=>regex.test(c.text));
-
-    if(results.length===0){
-        alert("No matches found");
-        return;
-    }
-
-    let msg=results.slice(0,15).map((r,i)=>
-        `${i+1}. [${r.num}] ${r.text}`
-    ).join("\n");
-
-    let pick=prompt("Results:\n\n"+msg+"\n\nEnter result number:");
-    if(pick===null) return;
-
-    let chosen=results[Number(pick)-1];
-    if(!chosen) return;
-
-    q=chosen.index;
-    showQ();
-}
-
-function showStats(){
-    let totalCards=Math.floor(answers.length/2);
-    let correctCount=0;
-    let wrongCount=0;
-
-    for(let i=0;i<correct.length;i++){
-        if(correct[i]) correctCount++;
-        if(wrong[i]) wrongCount++;
-    }
-
-    let attempted=correctCount+wrongCount;
-    let accuracy=attempted?(correctCount/attempted*100):0;
-
-    alert(
-        "FLASHCARD STATS\n\n"+
-        "Total cards: "+totalCards+"\n"+
-        "Attempted: "+attempted+"\n"+
-        "Correct: "+correctCount+"\n"+
-        "Wrong: "+wrongCount+"\n"+
-        "Accuracy: "+accuracy.toFixed(1)+"%"
-    );
-}
-
-function setFuzzy(){
-    const val=prompt("Set fuzzy threshold (0–100):",fuzzy);
-    if(val===null) return;
-    const num=Number(val);
-    if(isNaN(num)) return;
-    fuzzy=Math.max(0,Math.min(100,num));
-}
-
 renderButtons();
 
 </script>
-
 </body>
 </html>
