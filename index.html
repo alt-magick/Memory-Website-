@@ -49,8 +49,6 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
-
-    /* ✅ IMPORTANT FIX */
     touch-action: pan-y;
 }
 
@@ -91,7 +89,6 @@ html, body {
     gap: 8px;
     padding: 10px;
     background: #1a1a1a;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 
 button {
@@ -103,26 +100,8 @@ button {
     border-radius: 8px;
 }
 
-/* swipe hint FIXED */
-#card::after {
-    content: "← Swipe →";
-    position: absolute;
-    bottom: 8px;
-    right: 12px;
-    font-size: 12px;
-    color: #555;
-    pointer-events: none;
-}
-
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-
-@media (max-width: 400px) {
-    button {
-        padding: 12px;
-        font-size: 14px;
-    }
-}
 </style>
 </head>
 
@@ -130,25 +109,21 @@ button {
 
 <div id="app">
 
-    <!-- TABS -->
     <div id="tabs">
         <div class="tab active" onclick="setTab('nav', this)">Nav</div>
         <div class="tab" onclick="setTab('actions', this)">Actions</div>
         <div class="tab" onclick="setTab('tools', this)">Tools</div>
     </div>
 
-    <!-- CARD -->
     <div id="card">
         <div id="question">Load a file</div>
         <div id="answer"></div>
     </div>
 
-    <!-- INPUT -->
     <div id="inputBox">
         <input id="answerInput" placeholder="Type answer..." />
     </div>
 
-    <!-- CONTROLS -->
     <div id="controls"></div>
 
 </div>
@@ -165,6 +140,26 @@ const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
+
+/* ===== SWIPE FIX ===== */
+let startX=0, startY=0;
+
+card.addEventListener("pointerdown",(e)=>{
+    startX=e.clientX;
+    startY=e.clientY;
+});
+
+card.addEventListener("pointerup",(e)=>{
+    let dx=e.clientX-startX;
+    let dy=e.clientY-startY;
+
+    if(Math.abs(dx)<60) return;
+    if(Math.abs(dx)<Math.abs(dy)) return;
+
+    dx>0 ? prev() : next();
+});
+
+/* ===== CORE ===== */
 
 function normalize(str){
     return str.toLowerCase().replace(/[^a-z0-9]/g,"");
@@ -195,40 +190,39 @@ function similarityPercentage(a,b){
     return 100-(dist/maxLen)*100;
 }
 
-/* ===== SWIPE FIX (POINTER EVENTS) ===== */
-let startX = 0;
-let startY = 0;
+/* ===== NAV ===== */
 
-card.addEventListener("pointerdown", (e) => {
-    startX = e.clientX;
-    startY = e.clientY;
-});
-
-card.addEventListener("pointerup", (e) => {
-    let dx = e.clientX - startX;
-    let dy = e.clientY - startY;
-
-    if (Math.abs(dx) < 60) return;
-    if (Math.abs(dx) < Math.abs(dy)) return;
-
-    if (dx > 0) prev();
-    else next();
-});
-
-/* ===== REST OF YOUR CODE UNCHANGED ===== */
-
-function loadFile(e){
-    const r=new FileReader();
-    r.onload=()=>{
-        answers=r.result.split("\n");
-        memorized=Array(answers.length).fill(false);
-        correct=Array(answers.length).fill(false);
-        wrong=Array(answers.length).fill(false);
-        q=0;
-        showQ();
-    };
-    r.readAsText(e.target.files[0]);
+function next(){
+    let i=q+2;
+    while(i<answers.length && !isValidCard(i)) i+=2;
+    if(i>=answers.length){
+        i=0;
+        while(i<answers.length && !isValidCard(i)) i+=2;
+    }
+    q=i;
+    showQ();
 }
+
+function prev(){
+    let i=q-2;
+    while(i>=0 && !isValidCard(i)) i-=2;
+    if(i<0){
+        i=answers.length-2;
+        while(i>=0 && !isValidCard(i)) i-=2;
+    }
+    q=i;
+    showQ();
+}
+
+function start(){ q=0; showQ(); }
+
+function isValidCard(i){
+    if(i<0||i>=answers.length) return false;
+    if(skipMode && memorized[i]) return false;
+    return true;
+}
+
+/* ===== DISPLAY ===== */
 
 function showQ(){
     if(!answers.length) return;
@@ -239,40 +233,14 @@ function showQ(){
     aEl.textContent="";
 }
 
-function isValidCard(i){
-    if(i<0||i>=answers.length) return false;
-    if(skipMode&&memorized[i]) return false;
-    return true;
-}
-
-function next(){
-    let i=q+2;
-    while(i<answers.length&&!isValidCard(i)) i+=2;
-    if(i>=answers.length){
-        i=0;
-        while(i<answers.length&&!isValidCard(i)) i+=2;
-    }
-    q=i;
-    showQ();
-}
-
-function prev(){
-    let i=q-2;
-    while(i>=0&&!isValidCard(i)) i-=2;
-    if(i<0){
-        i=answers.length-2;
-        while(i>=0&&!isValidCard(i)) i-=2;
-    }
-    q=i;
-    showQ();
-}
-
-function start(){ q=0; showQ(); }
+/* ===== ACTIONS ===== */
 
 function showAnswer(){ aEl.textContent=answers[q+1]; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
 function toggleSkip(){ skipMode=!skipMode; showQ(); }
 function clearOutput(){ aEl.textContent=""; }
+
+/* ===== RANDOM ===== */
 
 function randomCard(){
     if(deckIndex>=deck.length){
@@ -288,6 +256,117 @@ function randomCard(){
         showQ();
     }
 }
+
+/* ===== FILE LOAD ===== */
+
+function loadFile(e){
+    const r=new FileReader();
+    r.onload=()=>{
+        answers=r.result.split("\n");
+        memorized=Array(answers.length).fill(false);
+        correct=Array(answers.length).fill(false);
+        wrong=Array(answers.length).fill(false);
+        q=0;
+        showQ();
+    };
+    r.readAsText(e.target.files[0]);
+}
+
+/* ===== JUMP (FIXED) ===== */
+
+function escapeRegExp(str){
+    return str.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+
+function jump(){
+    if(!answers.length) return;
+
+    let cards=[];
+    for(let i=0;i<answers.length;i+=2){
+        cards.push({index:i,num:(i/2)+1,text:answers[i]});
+    }
+
+    let query=prompt("Search:");
+    if(query===null) return;
+
+    query=query.toLowerCase().trim();
+
+    let regex=new RegExp(`\\b${escapeRegExp(query)}\\b`,"i");
+
+    let results=cards.filter(c=>regex.test(c.text));
+
+    if(results.length===0){
+        alert("No matches");
+        return;
+    }
+
+    let msg=results.slice(0,15)
+        .map((r,i)=>`${i+1}. [${r.num}] ${r.text}`)
+        .join("\n");
+
+    let pick=prompt(msg+"\n\nPick number:");
+    if(pick===null) return;
+
+    let chosen=results[Number(pick)-1];
+    if(!chosen) return;
+
+    q=chosen.index;
+    showQ();
+}
+
+/* ===== STATS ===== */
+
+function showStats(){
+    let total=Math.floor(answers.length/2);
+    let c=0,w=0;
+
+    for(let i=0;i<correct.length;i++){
+        if(correct[i]) c++;
+        if(wrong[i]) w++;
+    }
+
+    let a=c+w;
+    let acc=a?(c/a*100):0;
+
+    alert(
+        "TOTAL: "+total+
+        "\nAttempted: "+a+
+        "\nCorrect: "+c+
+        "\nWrong: "+w+
+        "\nAccuracy: "+acc.toFixed(1)+"%"
+    );
+}
+
+/* ===== FUZZY ===== */
+
+function setFuzzy(){
+    let v=prompt("Fuzzy (0-100):",fuzzy);
+    if(v===null) return;
+    v=Number(v);
+    if(isNaN(v)) return;
+    fuzzy=Math.max(0,Math.min(100,v));
+}
+
+/* ===== INPUT ===== */
+
+input.addEventListener("keydown",e=>{
+    if(e.key!=="Enter") return;
+
+    let val=input.value;
+    input.value="";
+
+    let sim=similarityPercentage(val,answers[q+1]);
+
+    if(sim>=fuzzy){
+        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span>`;
+        correct[q]=true;
+    } else {
+        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span>`;
+        wrong[q]=true;
+    }
+});
+
+/* ===== UI ===== */
 
 function setTab(tab,el){
     currentTab=tab;
@@ -324,31 +403,6 @@ function renderButtons(){
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
-
-function wrap(){
-    if(q>=answers.length) q=0;
-    if(q<0) q=answers.length-2;
-    if(!isValidCard(q)){
-        next();
-        return;
-    }
-    showQ();
-}
-
-input.addEventListener("keydown",e=>{
-    if(e.key!=="Enter") return;
-    let val=input.value;
-    input.value="";
-    let sim=similarityPercentage(val,answers[q+1]);
-
-    if(sim>=fuzzy){
-        aEl.innerHTML=`<span class="correct">Correct (${sim.toFixed(0)}%)</span>`;
-        correct[q]=true;
-    } else {
-        aEl.innerHTML=`<span class="wrong">Wrong (${sim.toFixed(0)}%)<br>${answers[q+1]}</span>`;
-        wrong[q]=true;
-    }
-});
 
 renderButtons();
 
