@@ -38,9 +38,7 @@ html, body {
     user-select: none;
 }
 
-.tab.active {
-    background: #444;
-}
+.tab.active { background: #444; }
 
 /* CARD */
 #card {
@@ -104,52 +102,33 @@ button {
 .wrong { color: #f66; }
 
 /* ===== MODAL ===== */
-#overlay {
+#modal {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.85);
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 999;
+    padding: 20px;
 }
 
-#panel {
-    width: min(92vw, 420px);
-    background: #1a1a1a;
+#modalContent {
+    width: 100%;
+    max-width: 500px;
+    background: #1b1b1b;
     border-radius: 12px;
-    padding: 14px;
+    padding: 16px;
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
-#panel h3 {
-    margin: 0 0 10px 0;
-    font-size: 18px;
-    color: #f6c344;
+#modal h2 {
+    margin-top: 0;
 }
 
-#panel input {
+.modalBtn {
     width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    background: #222;
-    color: #eee;
-    margin-bottom: 10px;
-}
-
-#panelBtn {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    background: #444;
-    color: white;
-}
-
-#panelExtra {
-    margin-top: 10px;
-    color: #aaa;
-    font-size: 14px;
+    margin-top: 8px;
 }
 </style>
 </head>
@@ -177,13 +156,8 @@ button {
 </div>
 
 <!-- MODAL -->
-<div id="overlay">
-    <div id="panel">
-        <h3 id="panelTitle"></h3>
-        <input id="panelInput" />
-        <button id="panelBtn">OK</button>
-        <div id="panelExtra"></div>
-    </div>
+<div id="modal" onclick="closeModal(event)">
+    <div id="modalContent"></div>
 </div>
 
 <script>
@@ -198,6 +172,8 @@ const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
+const modal=document.getElementById("modal");
+const modalContent=document.getElementById("modalContent");
 
 /* ===== SWIPE ===== */
 let startX=0, startY=0;
@@ -250,8 +226,28 @@ function similarityPercentage(a,b){
 
 /* ===== NAV ===== */
 
-function next(){ q+=2; showQ(); }
-function prev(){ q-=2; showQ(); }
+function next(){
+    let i=q+2;
+    while(i<answers.length && !isValidCard(i)) i+=2;
+    if(i>=answers.length){
+        i=0;
+        while(i<answers.length && !isValidCard(i)) i+=2;
+    }
+    q=i;
+    showQ();
+}
+
+function prev(){
+    let i=q-2;
+    while(i>=0 && !isValidCard(i)) i-=2;
+    if(i<0){
+        i=answers.length-2;
+        while(i>=0 && !isValidCard(i)) i-=2;
+    }
+    q=i;
+    showQ();
+}
+
 function start(){ q=0; showQ(); }
 
 function isValidCard(i){
@@ -312,89 +308,99 @@ function loadFile(e){
 
 /* ===== MODAL SYSTEM ===== */
 
-const overlay=document.getElementById("overlay");
-const panelTitle=document.getElementById("panelTitle");
-const panelInput=document.getElementById("panelInput");
-const panelBtn=document.getElementById("panelBtn");
-const panelExtra=document.getElementById("panelExtra");
-
-let mode=null;
-
-function openPanel(m){
-    mode=m;
-    overlay.style.display="flex";
-    panelInput.value="";
-    panelExtra.innerHTML="";
-
-    if(m==="jump"){
-        panelTitle.textContent="Jump Search";
-        panelInput.placeholder="Search...";
-    }
-
-    if(m==="fuzzy"){
-        panelTitle.textContent="Set Fuzzy";
-        panelInput.value=fuzzy;
-    }
-
-    if(m==="stats"){
-        panelTitle.textContent="Stats";
-
-        let total=Math.floor(answers.length/2);
-        let c=0,w=0;
-
-        for(let i=0;i<correct.length;i++){
-            if(correct[i]) c++;
-            if(wrong[i]) w++;
-        }
-
-        let a=c+w;
-        let acc=a?(c/a*100):0;
-
-        panelExtra.innerHTML=
-        `Total: ${total}<br>
-        Attempted: ${a}<br>
-        Correct: ${c}<br>
-        Wrong: ${w}<br>
-        Accuracy: ${acc.toFixed(1)}%`;
-    }
+function openModal(html){
+    modalContent.innerHTML=html;
+    modal.style.display="flex";
 }
 
-panelBtn.onclick=()=>{
-    let v=panelInput.value;
-
-    if(mode==="jump"){
-        runJump(v);
-    }
-
-    if(mode==="fuzzy"){
-        v=Number(v);
-        if(!isNaN(v)) fuzzy=Math.max(0,Math.min(100,v));
-    }
-
-    overlay.style.display="none";
-};
-
-overlay.onclick=(e)=>{
-    if(e.target===overlay) overlay.style.display="none";
-};
-
-/* ===== TOOL FIXES ===== */
-
-function jump(){ openPanel("jump"); }
-
-function runJump(qry){
-    qry=qry.toLowerCase().trim();
-    for(let i=0;i<answers.length;i+=2){
-        if(answers[i].toLowerCase().includes(qry)){
-            q=i;
-            showQ();
-            return;
-        }
-    }
+function closeModal(e){
+    if(e.target===modal) modal.style.display="none";
 }
 
-function setFuzzy(){ openPanel("fuzzy"); }
-function showStats(){ openPanel("stats"); }
+/* ===== JUMP UI ===== */
+
+function jump(){
+    let html=`
+        <h2>Jump</h2>
+        <input id="jumpSearch" placeholder="Search..." style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
+        <div id="jumpResults"></div>
+    `;
+    openModal(html);
+
+    let input=document.getElementById("jumpSearch");
+    let resultsBox=document.getElementById("jumpResults");
+
+    input.oninput=()=>{
+        let query=input.value.toLowerCase();
+        let out="";
+
+        for(let i=0;i<answers.length;i+=2){
+            if(answers[i].toLowerCase().includes(query)){
+                let num=(i/2)+1;
+                out+=`<button class="modalBtn" onclick="q=${i};showQ();closeModal({target:modal});">[${num}] ${answers[i]}</button>`;
+            }
+        }
+
+        resultsBox.innerHTML=out || "<p>No matches</p>";
+    };
+}
+
+/* ===== STATS ===== */
+
+function showStats(){
+    let total=Math.floor(answers.length/2);
+    let c=0,w=0;
+
+    for(let i=0;i<correct.length;i++){
+        if(correct[i]) c++;
+        if(wrong[i]) w++;
+    }
+
+    let a=c+w;
+    let acc=a?(c/a*100):0;
+
+    openModal(`
+        <h2>Stats</h2>
+        <p>Total: ${total}</p>
+        <p>Attempted: ${a}</p>
+        <p>Correct: ${c}</p>
+        <p>Wrong: ${w}</p>
+        <p>Accuracy: ${acc.toFixed(1)}%</p>
+        <button onclick="closeModal({target:modal})">Close</button>
+    `);
+}
+
+/* ===== FUZZY ===== */
+
+function setFuzzy(){
+    openModal(`
+        <h2>Fuzzy</h2>
+        <input id="fuzzyInput" type="number" value="${fuzzy}" style="width:100%;padding:10px;">
+        <button onclick="
+            fuzzy=document.getElementById('fuzzyInput').value;
+            closeModal({target:modal});
+        ">Save</button>
+    `);
+}
+
+/* ===== INPUT ===== */
+
+input.addEventListener("keydown",e=>{
+    if(e.key!=="Enter") return;
+
+    let val=input.value;
+    input.value="";
+
+    let sim=similarityPercentage(val,answers[q+1]);
+
+    if(sim>=fuzzy){
+        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span>`;
+        correct[q]=true;
+    } else {
+        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span>`;
+        wrong[q]=true;
+    }
+});
 
 /* ===== UI ===== */
 
@@ -407,7 +413,6 @@ function setTab(tab,el){
 
 function renderButtons(){
     controls.innerHTML="";
-
     const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
 
     if(currentTab==="nav"){
@@ -438,6 +443,5 @@ function renderButtons(){
 renderButtons();
 
 </script>
-
 </body>
 </html>
