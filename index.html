@@ -7,7 +7,6 @@
 
 <style>
 * { box-sizing: border-box; }
-
 html, body {
     height: 100%;
     margin: 0;
@@ -16,20 +15,17 @@ html, body {
     font-family: system-ui;
     overflow: hidden;
 }
-
 #app {
     height: 100dvh;
     display: flex;
     flex-direction: column;
 }
-
 /* TABS */
 #tabs {
     display: flex;
     background: #1a1a1a;
     flex-shrink: 0;
 }
-
 .tab {
     flex: 1;
     padding: 12px;
@@ -37,11 +33,9 @@ html, body {
     background: #222;
     user-select: none;
 }
-
 .tab.active {
     background: #444;
 }
-
 /* CARD */
 #card {
     flex: 1;
@@ -50,17 +44,14 @@ html, body {
     min-height: 0;
     position: relative;
 }
-
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
     margin-bottom: 16px;
 }
-
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
 }
-
 /* INPUT */
 #inputBox {
     flex-shrink: 0;
@@ -68,7 +59,6 @@ html, body {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: #1a1a1a;
 }
-
 #answerInput {
     width: 100%;
     padding: 14px;
@@ -79,7 +69,6 @@ html, body {
     color: #eee;
     outline: none;
 }
-
 /* CONTROLS */
 #controls {
     flex-shrink: 0;
@@ -90,7 +79,6 @@ html, body {
     background: #1a1a1a;
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
-
 button {
     padding: 14px;
     font-size: 15px;
@@ -99,10 +87,9 @@ button {
     color: #eee;
     border-radius: 8px;
 }
-
 /* swipe hint */
 #card::after {
-    content: "← swipe →";
+    content: "â† swipe â†’";
     position: absolute;
     bottom: 8px;
     right: 12px;
@@ -110,10 +97,8 @@ button {
     color: #555;
     pointer-events: none;
 }
-
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-
 @media (max-width: 400px) {
     button {
         padding: 12px;
@@ -328,18 +313,11 @@ input.addEventListener("keydown",e=>{
     }
 });
 
-let touchStartX=0;
-card.addEventListener("touchstart",e=>{
-    touchStartX=e.changedTouches[0].screenX;
-},{passive:true});
+/* ===== SEARCHABLE JUMP (FIXED: WHOLE WORD MATCH) ===== */
+function escapeRegExp(str){
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-card.addEventListener("touchend",e=>{
-    let diff=e.changedTouches[0].screenX-touchStartX;
-    if(Math.abs(diff)<50) return;
-    diff>0?prev():next();
-},{passive:true});
-
-/* ===== SEARCHABLE JUMP (FIXED) ===== */
 function jump(){
     if(!answers.length) return;
 
@@ -352,7 +330,9 @@ function jump(){
     if(query===null) return;
     query=query.toLowerCase().trim();
 
-    let results=cards.filter(c=>c.text.toLowerCase().includes(query));
+    let regex = new RegExp(`\\b${escapeRegExp(query)}\\b`, "i");
+
+    let results = cards.filter(c => regex.test(c.text));
 
     if(results.length===0){
         alert("No matches found");
@@ -397,7 +377,7 @@ function showStats(){
 }
 
 function setFuzzy(){
-    const val=prompt("Set fuzzy threshold (0–100):",fuzzy);
+    const val=prompt("Set fuzzy threshold (0â€“100):",fuzzy);
     if(val===null) return;
     const num=Number(val);
     if(isNaN(num)) return;
