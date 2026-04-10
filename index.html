@@ -29,6 +29,7 @@ html, body {
     background: #1a1a1a;
     flex-shrink: 0;
 }
+
 .tab {
     flex: 1;
     padding: 12px;
@@ -36,6 +37,7 @@ html, body {
     background: #222;
     user-select: none;
 }
+
 .tab.active { background: #444; }
 
 /* CARD */
@@ -47,18 +49,15 @@ html, body {
     position: relative;
     touch-action: pan-y;
 }
+
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
     margin-bottom: 16px;
 }
+
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
-}
-
-/* spacing for result */
-#answer div {
-    margin-bottom: 6px;
 }
 
 /* INPUT */
@@ -68,6 +67,7 @@ html, body {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: #1a1a1a;
 }
+
 #answerInput {
     width: 100%;
     padding: 14px;
@@ -88,6 +88,7 @@ html, body {
     padding: 10px;
     background: #1a1a1a;
 }
+
 button {
     padding: 14px;
     font-size: 15px;
@@ -96,7 +97,7 @@ button {
     color: #eee;
     border-radius: 8px;
 }
-
+    
 #card::after {
     content: "← swipe →";
     position: absolute;
@@ -106,11 +107,11 @@ button {
     color: #555;
     pointer-events: none;
 }
-
+    
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
-/* MODAL */
+/* ===== MODAL ===== */
 #modal {
     position: fixed;
     inset: 0;
@@ -120,6 +121,7 @@ button {
     justify-content: center;
     padding: 20px;
 }
+
 #modalContent {
     width: 100%;
     max-width: 500px;
@@ -129,6 +131,11 @@ button {
     max-height: 80vh;
     overflow-y: auto;
 }
+
+#modal h2 {
+    margin-top: 0;
+}
+
 .modalBtn {
     width: 100%;
     margin-top: 8px;
@@ -140,29 +147,31 @@ button {
 
 <div id="app">
 
-<div id="tabs">
-    <div class="tab active" onclick="setTab('nav', this)">Nav</div>
-    <div class="tab" onclick="setTab('actions', this)">Actions</div>
-    <div class="tab" onclick="setTab('tools', this)">Tools</div>
+    <div id="tabs">
+        <div class="tab active" onclick="setTab('nav', this)">Nav</div>
+        <div class="tab" onclick="setTab('actions', this)">Actions</div>
+        <div class="tab" onclick="setTab('tools', this)">Tools</div>
+    </div>
+
+    <div id="card">
+        <div id="question">Load a file</div>
+        <div id="answer"></div>
+    </div>
+
+    <div id="inputBox">
+        <input id="answerInput" placeholder="Type answer..." />
+    </div>
+
+    <div id="controls"></div>
 </div>
 
-<div id="card">
-    <div id="question">Load a file</div>
-    <div id="answer"></div>
-</div>
-
-<div id="inputBox">
-    <input id="answerInput" placeholder="Type answer..." />
-</div>
-
-<div id="controls"></div>
-</div>
-
+<!-- MODAL -->
 <div id="modal" onclick="closeModal(event)">
     <div id="modalContent"></div>
 </div>
 
 <script>
+
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
 let deck=[], deckIndex=0;
@@ -176,30 +185,37 @@ const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
 
-/* SWIPE */
+/* ===== SWIPE ===== */
 let startX=0, startY=0;
+
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
 });
+
 card.addEventListener("pointerup",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
+
     if(Math.abs(dx)<60) return;
     if(Math.abs(dx)<Math.abs(dy)) return;
+
     dx>0 ? prev() : next();
 });
 
-/* CORE */
+/* ===== CORE ===== */
+
 function normalize(str){
     return str.toLowerCase().replace(/[^a-z0-9]/g,"");
 }
+
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
 
     let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
+
     for(let i=0;i<=a.length;i++) dp[i][0]=i;
     for(let j=0;j<=b.length;j++) dp[0][j]=j;
 
@@ -218,7 +234,8 @@ function similarityPercentage(a,b){
     return 100-(dist/maxLen)*100;
 }
 
-/* NAV */
+/* ===== NAV ===== */
+
 function next(){
     let i=q+2;
     while(i<answers.length && !isValidCard(i)) i+=2;
@@ -229,6 +246,7 @@ function next(){
     q=i;
     showQ();
 }
+
 function prev(){
     let i=q-2;
     while(i>=0 && !isValidCard(i)) i-=2;
@@ -239,14 +257,17 @@ function prev(){
     q=i;
     showQ();
 }
+
 function start(){ q=0; showQ(); }
 
 function isValidCard(i){
+    if(i<0||i>=answers.length) return false;
     if(skipMode && memorized[i]) return false;
     return true;
 }
 
-/* DISPLAY */
+/* ===== DISPLAY ===== */
+
 function showQ(){
     if(!answers.length) return;
     let t=answers[q];
@@ -256,13 +277,32 @@ function showQ(){
     aEl.textContent="";
 }
 
-/* ACTIONS */
+/* ===== ACTIONS ===== */
+
 function showAnswer(){ aEl.textContent=answers[q+1]; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
 function toggleSkip(){ skipMode=!skipMode; showQ(); }
 function clearOutput(){ aEl.textContent=""; }
 
-/* FILE LOAD */
+/* ===== RANDOM ===== */
+
+function randomCard(){
+    if(deckIndex>=deck.length){
+        deck=[];
+        for(let i=0;i<answers.length;i+=2){
+            if(isValidCard(i)) deck.push(i);
+        }
+        deck.sort(()=>Math.random()-0.5);
+        deckIndex=0;
+    }
+    if(deck.length){
+        q=deck[deckIndex++];
+        showQ();
+    }
+}
+
+/* ===== FILE LOAD ===== */
+
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -276,7 +316,101 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* INPUT CHECK */
+/* ===== MODAL SYSTEM ===== */
+
+function openModal(html){
+    modalContent.innerHTML=html;
+    modal.style.display="flex";
+}
+
+function closeModal(e){
+    if(e.target===modal) modal.style.display="none";
+}
+
+/* ===== JUMP UI ===== */
+
+function jump(){
+    let html=`
+        <h2>Jump</h2>
+        <input id="jumpSearch" placeholder="Search..." style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
+        <div id="jumpResults"></div>
+    `;
+    openModal(html);
+
+    let input=document.getElementById("jumpSearch");
+    let resultsBox=document.getElementById("jumpResults");
+
+    input.oninput=()=>{
+        let query=input.value.toLowerCase();
+        let out="";
+
+        for(let i=0;i<answers.length;i+=2){
+            if(answers[i].toLowerCase().includes(query)){
+                let num=(i/2)+1;
+                out+=`<button class="modalBtn" onclick="q=${i};showQ();closeModal({target:modal});">[${num}] ${answers[i]}</button>`;
+            }
+        }
+
+        resultsBox.innerHTML=out || "<p>No matches</p>";
+    };
+}
+
+/* ===== STATS ===== */
+
+function showStats(){
+    let total=Math.floor(answers.length/2);
+    let c=0,w=0;
+
+    for(let i=0;i<correct.length;i++){
+        if(correct[i]) c++;
+        if(wrong[i]) w++;
+    }
+
+    let a=c+w;
+    let acc=a?(c/a*100):0;
+
+    openModal(`
+        <h2>Stats</h2>
+        <p>Total: ${total}</p>
+        <p>Attempted: ${a}</p>
+        <p>Correct: ${c}</p>
+        <p>Wrong: ${w}</p>
+        <p>Accuracy: ${acc.toFixed(1)}%</p>
+        <button onclick="closeModal({target:modal})">Close</button>
+    `);
+}
+
+/* ===== FUZZY ===== */
+function setFuzzy(){
+    openModal(`
+        <h2>Fuzzy</h2>
+
+        <input id="fuzzyInput"
+            type="number"
+            value="${fuzzy}"
+            placeholder="0 - 100"
+            style="
+                width:100%;
+                padding:12px;
+                background:#222;
+                color:#fff;
+                border:none;
+                border-radius:8px;
+                outline:none;
+                font-size:16px;
+                margin-bottom:10px;
+            "
+        >
+
+        <button class="modalBtn" onclick="
+            fuzzy = Number(document.getElementById('fuzzyInput').value);
+            closeModal({target:modal});
+        ">Save</button>
+    `);
+}
+
+/* ===== INPUT ===== */
+
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
 
@@ -284,30 +418,25 @@ input.addEventListener("keydown",e=>{
     input.value="";
 
     let sim=similarityPercentage(val,answers[q+1]);
-    let correctAnswer = answers[q+1];
 
     if(sim>=fuzzy){
-        aEl.innerHTML = `
-            <div class="correct">✔ Correct (${sim.toFixed(0)}%)</div>
-            <div>${correctAnswer}</div>
-        `;
+        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span>`;
         correct[q]=true;
     } else {
-        aEl.innerHTML = `
-            <div class="wrong">✘ Wrong (${sim.toFixed(0)}%)</div>
-            <div>Correct answer: ${correctAnswer}</div>
-        `;
+        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span>`;
         wrong[q]=true;
     }
 });
 
-/* UI */
+/* ===== UI ===== */
+
 function setTab(tab,el){
     currentTab=tab;
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     el.classList.add("active");
     renderButtons();
 }
+
 function renderButtons(){
     controls.innerHTML="";
     const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
@@ -316,8 +445,10 @@ function renderButtons(){
         controls.innerHTML=
             btn("Prev","prev()")+
             btn("Next","next()")+
-            btn("Start","start()");
+            btn("Start","start()")+
+            btn("Random","randomCard()");
     }
+
     if(currentTab==="actions"){
         controls.innerHTML=
             btn("Answer","showAnswer()")+
@@ -325,14 +456,18 @@ function renderButtons(){
             btn("Skip","toggleSkip()")+
             btn("Clear","clearOutput()");
     }
+
     if(currentTab==="tools"){
         controls.innerHTML=
+            btn("Jump","jump()")+
+            btn("Fuzzy","setFuzzy()")+
+            btn("Stats","showStats()")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
 
 renderButtons();
-</script>
 
+</script>
 </body>
 </html>
