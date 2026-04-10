@@ -6,9 +6,7 @@
 <title>Flashcards</title>
 
 <style>
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html, body {
     height: 100%;
@@ -115,7 +113,6 @@ button {
 
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-.stats { color: #6cf; }
 
 @media (max-width: 400px) {
     button {
@@ -155,27 +152,23 @@ button {
 
 <script>
 
-/* ===== STATE ===== */
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
 let deck=[], deckIndex=0;
 let currentTab="nav";
 
-/* ===== ELEMENTS ===== */
 const qEl=document.getElementById("question");
 const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
 
-/* ===== UTIL ===== */
 function normalize(str){
     return str.toLowerCase().replace(/[^a-z0-9]/g,"");
 }
 
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
-
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
 
@@ -199,7 +192,6 @@ function similarityPercentage(a,b){
     return 100-(dist/maxLen)*100;
 }
 
-/* ===== FILE LOAD ===== */
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -213,108 +205,77 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== DISPLAY ===== */
 function showQ(){
     if(!answers.length) return;
-
     let t=answers[q];
     if(memorized[q]) t+=" [MEM]";
     if(skipMode) t+=" [SKIP]";
-
     qEl.textContent=t;
     aEl.textContent="";
 }
 
-/* ===== VALID CARD CHECK ===== */
 function isValidCard(i){
-    if(i < 0 || i >= answers.length) return false;
-    if(skipMode && memorized[i]) return false;
+    if(i<0||i>=answers.length) return false;
+    if(skipMode&&memorized[i]) return false;
     return true;
 }
 
-/* ===== NAVIGATION ===== */
 function next(){
-    let i = q + 2;
-
-    while(i < answers.length && !isValidCard(i)){
-        i += 2;
+    let i=q+2;
+    while(i<answers.length&&!isValidCard(i)) i+=2;
+    if(i>=answers.length){
+        i=0;
+        while(i<answers.length&&!isValidCard(i)) i+=2;
     }
-
-    if(i >= answers.length){
-        i = 0;
-        while(i < answers.length && !isValidCard(i)){
-            i += 2;
-        }
-    }
-
-    q = i;
+    q=i;
     showQ();
 }
 
 function prev(){
-    let i = q - 2;
-
-    while(i >= 0 && !isValidCard(i)){
-        i -= 2;
+    let i=q-2;
+    while(i>=0&&!isValidCard(i)) i-=2;
+    if(i<0){
+        i=answers.length-2;
+        while(i>=0&&!isValidCard(i)) i-=2;
     }
-
-    if(i < 0){
-        i = answers.length - 2;
-        while(i >= 0 && !isValidCard(i)){
-            i -= 2;
-        }
-    }
-
-    q = i;
+    q=i;
     showQ();
 }
 
 function start(){
-    q = 0;
+    q=0;
     showQ();
 }
 
-/* ===== ACTIONS ===== */
 function showAnswer(){ aEl.textContent=answers[q+1]; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
 function toggleSkip(){ skipMode=!skipMode; showQ(); }
 function clearOutput(){ aEl.textContent=""; }
 
-/* ===== RANDOM ===== */
 function randomCard(){
-    if(deckIndex >= deck.length){
-        deck = [];
-
+    if(deckIndex>=deck.length){
+        deck=[];
         for(let i=0;i<answers.length;i+=2){
             if(isValidCard(i)) deck.push(i);
         }
-
         deck.sort(()=>Math.random()-0.5);
         deckIndex=0;
     }
-
     if(deck.length){
-        q = deck[deckIndex++];
+        q=deck[deckIndex++];
         showQ();
     }
 }
 
-/* ===== TABS ===== */
-function setTab(tab, el){
+function setTab(tab,el){
     currentTab=tab;
-
-    document.querySelectorAll(".tab")
-        .forEach(t=>t.classList.remove("active"));
-
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     el.classList.add("active");
-
     renderButtons();
 }
 
-/* ===== BUTTONS ===== */
 function renderButtons(){
     controls.innerHTML="";
-
     const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
 
     if(currentTab==="nav"){
@@ -342,26 +303,20 @@ function renderButtons(){
     }
 }
 
-/* ===== WRAP SAFETY ===== */
 function wrap(){
-    if(q >= answers.length) q = 0;
-    if(q < 0) q = answers.length - 2;
-
+    if(q>=answers.length) q=0;
+    if(q<0) q=answers.length-2;
     if(!isValidCard(q)){
         next();
         return;
     }
-
     showQ();
 }
 
-/* ===== INPUT ===== */
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
-
     let val=input.value;
     input.value="";
-
     let sim=similarityPercentage(val,answers[q+1]);
 
     if(sim>=fuzzy){
@@ -373,29 +328,82 @@ input.addEventListener("keydown",e=>{
     }
 });
 
-/* ===== SWIPE ===== */
 let touchStartX=0;
-let touchEndX=0;
-
-card.addEventListener("touchstart",(e)=>{
+card.addEventListener("touchstart",e=>{
     touchStartX=e.changedTouches[0].screenX;
 },{passive:true});
 
-card.addEventListener("touchend",(e)=>{
-    touchEndX=e.changedTouches[0].screenX;
-
-    const diff = touchEndX - touchStartX;
-
-    if(Math.abs(diff) < 50) return;
-
-    if(diff > 0){
-        prev();
-    } else {
-        next();
-    }
+card.addEventListener("touchend",e=>{
+    let diff=e.changedTouches[0].screenX-touchStartX;
+    if(Math.abs(diff)<50) return;
+    diff>0?prev():next();
 },{passive:true});
 
-/* INIT */
+/* ===== SEARCHABLE JUMP (FIXED) ===== */
+function jump(){
+    if(!answers.length) return;
+
+    let cards=[];
+    for(let i=0;i<answers.length;i+=2){
+        cards.push({index:i,num:(i/2)+1,text:answers[i]});
+    }
+
+    let query=prompt("Search cards:");
+    if(query===null) return;
+    query=query.toLowerCase().trim();
+
+    let results=cards.filter(c=>c.text.toLowerCase().includes(query));
+
+    if(results.length===0){
+        alert("No matches found");
+        return;
+    }
+
+    let msg=results.slice(0,15).map((r,i)=>
+        `${i+1}. [${r.num}] ${r.text}`
+    ).join("\n");
+
+    let pick=prompt("Results:\n\n"+msg+"\n\nEnter result number:");
+    if(pick===null) return;
+
+    let chosen=results[Number(pick)-1];
+    if(!chosen) return;
+
+    q=chosen.index;
+    showQ();
+}
+
+function showStats(){
+    let totalCards=Math.floor(answers.length/2);
+    let correctCount=0;
+    let wrongCount=0;
+
+    for(let i=0;i<correct.length;i++){
+        if(correct[i]) correctCount++;
+        if(wrong[i]) wrongCount++;
+    }
+
+    let attempted=correctCount+wrongCount;
+    let accuracy=attempted?(correctCount/attempted*100):0;
+
+    alert(
+        "FLASHCARD STATS\n\n"+
+        "Total cards: "+totalCards+"\n"+
+        "Attempted: "+attempted+"\n"+
+        "Correct: "+correctCount+"\n"+
+        "Wrong: "+wrongCount+"\n"+
+        "Accuracy: "+accuracy.toFixed(1)+"%"
+    );
+}
+
+function setFuzzy(){
+    const val=prompt("Set fuzzy threshold (0–100):",fuzzy);
+    if(val===null) return;
+    const num=Number(val);
+    if(isNaN(num)) return;
+    fuzzy=Math.max(0,Math.min(100,num));
+}
+
 renderButtons();
 
 </script>
