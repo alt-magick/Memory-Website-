@@ -371,13 +371,29 @@ function showStats(){
 }
 
 /* ===== FUZZY ===== */
-
 function setFuzzy(){
     openModal(`
         <h2>Fuzzy</h2>
-        <input id="fuzzyInput" type="number" value="${fuzzy}" style="width:100%;padding:10px;">
-        <button onclick="
-            fuzzy=document.getElementById('fuzzyInput').value;
+
+        <input id="fuzzyInput"
+            type="number"
+            value="${fuzzy}"
+            placeholder="0 - 100"
+            style="
+                width:100%;
+                padding:12px;
+                background:#222;
+                color:#fff;
+                border:none;
+                border-radius:8px;
+                outline:none;
+                font-size:16px;
+                margin-bottom:10px;
+            "
+        >
+
+        <button class="modalBtn" onclick="
+            fuzzy = Number(document.getElementById('fuzzyInput').value);
             closeModal({target:modal});
         ">Save</button>
     `);
