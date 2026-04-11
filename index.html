@@ -176,50 +176,18 @@ const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
 
-/* SWIPE + TAP + HOLD (FIXED) */
+/* SWIPE */
 let startX=0, startY=0;
-let holdTimer=null;
-let moved=false;
-
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
-    moved=false;
-
-    // HOLD = MEM
-    holdTimer=setTimeout(()=>{
-        toggleMem();
-    },500);
 });
-
-card.addEventListener("pointermove",(e)=>{
-    if(Math.abs(e.clientX-startX)>10 || Math.abs(e.clientY-startY)>10){
-        moved=true;
-    }
-});
-
 card.addEventListener("pointerup",(e)=>{
-    clearTimeout(holdTimer);
-
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
-
-    // TAP = ANSWER
-    if(Math.abs(dx)<30 && Math.abs(dy)<30){
-        if(!moved) showAnswer();
-        return;
-    }
-
-    // UP / DOWN SWIPE (vertical priority)
-    if(Math.abs(dy)>Math.abs(dx)){
-        if(dy<-80) randomCard(); // UP
-        else if(dy>80) start();  // DOWN
-        return;
-    }
-
-    // LEFT / RIGHT SWIPE
-    if(dx>60) prev();
-    else if(dx<-60) next();
+    if(Math.abs(dx)<60) return;
+    if(Math.abs(dx)<Math.abs(dy)) return;
+    dx>0 ? prev() : next();
 });
 
 /* CORE */
