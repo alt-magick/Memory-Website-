@@ -43,6 +43,7 @@ html, body {
     overflow-y: auto;
     padding: 16px;
     position: relative;
+    touch-action: pan-y;
 }
 
 #question {
@@ -68,6 +69,13 @@ html, body {
     border-radius: 8px;
     background: #222;
     color: #eee;
+    outline: none;
+
+    /* 🔥 improves mobile keyboard behavior */
+    autocomplete: off;
+    autocorrect: off;
+    autocapitalize: off;
+    spellcheck: false;
 }
 
 #controls {
@@ -117,7 +125,6 @@ button {
 <script>
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
-let deck=[], deckIndex=0;
 let currentTab="nav";
 
 const qEl=document.getElementById("question");
@@ -128,18 +135,16 @@ const input=document.getElementById("answerInput");
 /* ===== KEY MAP ===== */
 const keyMap = {
     p:"prev", n:"next", s:"start", r:"randomCard",
-    a:"showAnswer", m:"toggleMem", v:"toggleSkip", c:"clearOutput",
-    j:"jump", f:"setFuzzy", t:"showStats"
+    a:"showAnswer", m:"toggleMem", v:"toggleSkip", c:"clearOutput"
 };
 
-/* ===== SAVE ===== */
+/* ===== SAVE / LOAD ===== */
 function saveState(){
     localStorage.setItem("flashcards_data", JSON.stringify({
         answers, memorized, correct, wrong, q, skipMode
     }));
 }
 
-/* ===== LOAD ===== */
 window.addEventListener("load", ()=>{
     const saved = localStorage.getItem("flashcards_data");
     if(saved){
@@ -152,17 +157,52 @@ window.addEventListener("load", ()=>{
         skipMode=d.skipMode||false;
         showQ();
     }
+
+    // 🔥 focus after load
+    setTimeout(()=>input.focus(),100);
+});
+
+/* ===== KEEP KEYBOARD OPEN ===== */
+document.addEventListener("pointerdown", (e) => {
+    const tag = e.target.tagName.toLowerCase();
+    if (tag === "button" || tag === "input" || e.target.closest("button")) return;
+    input.focus({ preventScroll:true });
+});
+
+input.addEventListener("blur", () => {
+    setTimeout(()=>input.focus({ preventScroll:true }),10);
+});
+
+/* ===== SWIPE ===== */
+let startX=0,startY=0;
+const card=document.getElementById("card");
+
+card.addEventListener("pointerdown",(e)=>{
+    startX=e.clientX;
+    startY=e.clientY;
+});
+
+card.addEventListener("pointerup",(e)=>{
+    let dx=e.clientX-startX;
+    let dy=e.clientY-startY;
+    if(Math.abs(dx)<60) return;
+    if(Math.abs(dx)<Math.abs(dy)) return;
+    dx>0 ? prev() : next();
 });
 
 /* ===== CORE ===== */
-function normalize(str){return str.toLowerCase().replace(/[^a-z0-9]/g,"");}
+function normalize(str){
+    return str.toLowerCase().replace(/[^a-z0-9]/g,"");
+}
 
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
     if(!a||!b) return a===b?100:0;
+
     let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
     for(let i=0;i<=a.length;i++) dp[i][0]=i;
     for(let j=0;j<=b.length;j++) dp[0][j]=j;
+
     for(let i=1;i<=a.length;i++){
         for(let j=1;j<=b.length;j++){
             dp[i][j]=Math.min(
@@ -172,6 +212,7 @@ function similarityPercentage(a,b){
             );
         }
     }
+
     let dist=dp[a.length][b.length];
     return 100-(dist/Math.max(a.length,b.length))*100;
 }
@@ -181,6 +222,7 @@ function next(){ q=(q+2)%answers.length; saveState(); showQ(); }
 function prev(){ q=(q-2+answers.length)%answers.length; saveState(); showQ(); }
 function start(){ q=0; saveState(); showQ(); }
 
+/* ===== DISPLAY ===== */
 function showQ(){
     if(!answers.length) return;
     let t=answers[q];
@@ -218,17 +260,29 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== INPUT ===== */
+/* ===== INPUT SYSTEM ===== */
+
+// instant key triggers
+input.addEventListener("input", ()=>{
+    let val=input.value;
+
+    if(val.length===1){
+        let key=val.toLowerCase();
+        if(keyMap[key]){
+            input.value="";
+            window[keyMap[key]]();
+        }
+    }
+});
+
+// enter = answer
 input.addEventListener("keydown", e=>{
     if(e.key!=="Enter") return;
 
     let val=input.value.trim().toLowerCase();
     input.value="";
 
-    if(val.length===1 && keyMap[val]){
-        window[keyMap[val]]();
-        return;
-    }
+    if(val.length<=1) return;
 
     let sim=similarityPercentage(val,answers[q+1]);
 
@@ -273,9 +327,6 @@ function renderButtons(){
 
     if(currentTab==="tools"){
         controls.innerHTML=
-            btn("Jump","jump","J")+
-            btn("Fuzzy","setFuzzy","F")+
-            btn("Stats","showStats","T")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
