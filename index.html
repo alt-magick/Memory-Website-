@@ -47,7 +47,7 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
-    touch-action: none; /* important for full gesture control */
+    touch-action: none;
 }
 
 #question {
@@ -101,7 +101,6 @@ button {
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
-/* MODAL */
 #modal {
     position: fixed;
     inset: 0;
@@ -145,12 +144,12 @@ button {
     <div id="controls"></div>
 </div>
 
-<!-- MODAL -->
 <div id="modal" onclick="closeModal(event)">
     <div id="modalContent"></div>
 </div>
 
 <script>
+
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
 let deck=[], deckIndex=0;
@@ -163,6 +162,11 @@ const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
+
+/* ===== HAPTIC ===== */
+function haptic(pattern = 10){
+    if (navigator.vibrate) navigator.vibrate(pattern);
+}
 
 /* ===== SWIPE + TAP + HOLD ===== */
 let startX=0, startY=0;
@@ -180,7 +184,7 @@ card.addEventListener("pointerdown",(e)=>{
     holdTimer=setTimeout(()=>{
         if(!moved){
             isHold=true;
-            toggleMem(); // HOLD = MEM
+            toggleMem();
         }
     },500);
 });
@@ -202,20 +206,17 @@ card.addEventListener("pointerup",(e)=>{
 
     if(isHold) return;
 
-    // vertical swipe
     if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>80){
         if(dy>0) start();
         else randomCard();
         return;
     }
 
-    // horizontal swipe
     if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>60){
         dx>0 ? prev() : next();
         return;
     }
 
-    // TAP
     showAnswer();
 });
 
@@ -230,6 +231,7 @@ function normalize(str){
 
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
+
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
 
@@ -330,27 +332,20 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL SYSTEM ===== */
-function openModal(html){
-    modalContent.innerHTML=html;
-    modal.style.display="flex";
-}
-
-function closeModal(e){
-    if(e.target===modal) modal.style.display="none";
-}
-
 /* ===== INPUT ===== */
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
+
     let val=input.value;
     input.value="";
+
     let sim=similarityPercentage(val,answers[q+1]);
 
     if(sim>=fuzzy){
         aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
         correct[q]=true;
     } else {
+        haptic([30, 40, 30]); // ❌ WRONG ANSWER HAPTIC
         aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
         wrong[q]=true;
     }
