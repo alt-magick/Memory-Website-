@@ -23,7 +23,6 @@
             flex-direction: column;
         }
 
-        /* TABS */
         #tabs {
             display: flex;
             background: #1a1a1a;
@@ -42,7 +41,6 @@
             background: #444;
         }
 
-        /* CARD */
         #card {
             flex: 1;
             overflow-y: auto;
@@ -62,7 +60,6 @@
             font-size: clamp(20px, 5.5vw, 26px);
         }
 
-        /* INPUT */
         #inputBox {
             flex-shrink: 0;
             padding: 10px;
@@ -81,7 +78,6 @@
             outline: none;
         }
 
-        /* CONTROLS */
         #controls {
             flex-shrink: 0;
             display: grid;
@@ -103,7 +99,6 @@
         .correct { color: #6f6; }
         .wrong { color: #f66; }
 
-        /* MODAL */
         #modal {
             position: fixed;
             inset: 0;
@@ -129,14 +124,12 @@
 <body>
 <div id="app">
 
-    <!-- TABS -->
     <div id="tabs">
         <div class="tab active" onclick="setTab('nav', this)">Nav</div>
         <div class="tab" onclick="setTab('actions', this)">Actions</div>
         <div class="tab" onclick="setTab('tools', this)">Tools</div>
     </div>
 
-    <!-- CARD -->
     <div id="card">
         <div id="question">
             Nav:<br>
@@ -146,29 +139,19 @@
             Answer, Clear, Mem, Skip<br><br>
 
             Tools:<br>
-            Jump, Fuzzy, Stats, Load File<br><br>
-
-            Swipe:<br>
-            Left / Right (Next / Prev)<br>
-            Up (Rand)<br>
-            Down (Start)<br>
-            Tap (Answer)<br>
-            Hold (Mem)
+            Jump, Fuzzy, Stats, Load File
         </div>
         <div id="answer"></div>
     </div>
 
-    <!-- INPUT -->
     <div id="inputBox">
         <input id="answerInput" placeholder="Type answer..." />
     </div>
 
-    <!-- CONTROLS -->
     <div id="controls"></div>
 </div>
 
-<!-- MODAL -->
-<div id="modal" onclick="closeModal(event)">
+<div id="modal">
     <div id="modalContent"></div>
 </div>
 
@@ -186,8 +169,7 @@ const card = document.getElementById("card");
 const modal = document.getElementById("modal");
 const modalContent = document.getElementById("modalContent");
 
-/* ===== ONLY CHANGE: FUZZY BUTTON ===== */
-
+/* ===== FUZZY ===== */
 function setFuzzy() {
     let value = prompt("Set fuzzy threshold (0–100):", fuzzy);
     if (value === null) return;
@@ -197,13 +179,36 @@ function setFuzzy() {
 
     fuzzy = Math.max(0, Math.min(100, value));
 }
-    
+
+/* ===== STATS (NEW) ===== */
+function showStats() {
+    let total = answers.length / 2;
+
+    let correctCount = correct.filter(Boolean).length;
+    let wrongCount = wrong.filter(Boolean).length;
+    let memCount = memorized.filter(Boolean).length;
+
+    let attempted = correctCount + wrongCount;
+    let accuracy = attempted ? (correctCount / attempted) * 100 : 0;
+
+    modalContent.innerHTML = `
+        <h2>Stats</h2>
+        <p>Total cards: ${total}</p>
+        <p>Correct: ${correctCount}</p>
+        <p>Wrong: ${wrongCount}</p>
+        <p>Accuracy: ${accuracy.toFixed(1)}%</p>
+        <p>Memorized: ${memCount}</p>
+    `;
+
+    modal.style.display = "flex";
+}
+
 /* ===== HAPTIC ===== */
 function haptic(pattern = 10) {
     if (navigator.vibrate) navigator.vibrate(pattern);
 }
 
-/* ===== SWIPE + HOLD ===== */
+/* ===== SWIPE / HOLD ===== */
 let startX = 0, startY = 0;
 let holdTimer = null;
 let isHold = false;
@@ -255,7 +260,7 @@ card.addEventListener("pointercancel", () => {
     clearTimeout(holdTimer);
 });
 
-/* ===== CORE FUNCTIONS ===== */
+/* ===== CORE ===== */
 function normalize(str) {
     return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -385,7 +390,7 @@ function loadFile(e) {
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== INPUT CHECK ===== */
+/* ===== INPUT ===== */
 input.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
 
@@ -447,5 +452,6 @@ function renderButtons() {
 
 renderButtons();
 </script>
+
 </body>
 </html>
