@@ -7,7 +7,6 @@
 
 <style>
 * { box-sizing: border-box; }
-
 html, body {
     height: 100%;
     margin: 0;
@@ -16,7 +15,6 @@ html, body {
     font-family: system-ui;
     overflow: hidden;
 }
-
 #app {
     height: 100dvh;
     display: flex;
@@ -29,7 +27,6 @@ html, body {
     background: #1a1a1a;
     flex-shrink: 0;
 }
-
 .tab {
     flex: 1;
     padding: 12px;
@@ -37,7 +34,6 @@ html, body {
     background: #222;
     user-select: none;
 }
-
 .tab.active { background: #444; }
 
 /* CARD */
@@ -49,13 +45,11 @@ html, body {
     position: relative;
     touch-action: none;
 }
-
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
     margin-bottom: 16px;
 }
-
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
 }
@@ -67,7 +61,6 @@ html, body {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: #1a1a1a;
 }
-
 #answerInput {
     width: 100%;
     padding: 14px;
@@ -101,29 +94,44 @@ button {
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
-#modal {
+/* ===== HELP OVERLAY (NEW) ===== */
+#helpOverlay {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.85);
-    display: none;
+    color: #ddd;
+    display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
     padding: 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    z-index: 9999;
 }
-
-#modalContent {
-    width: 100%;
-    max-width: 500px;
-    background: #1b1b1b;
-    border-radius: 12px;
-    padding: 16px;
-    max-height: 80vh;
-    overflow-y: auto;
+#helpOverlay b {
+    color: #f6c344;
 }
 </style>
 </head>
 
 <body>
+
+<!-- HELP OVERLAY (NEW) -->
+<div id="helpOverlay" onclick="this.style.display='none'">
+<b>Flashcards Controls</b><br><br>
+
+👉 Tap card = show answer<br>
+👉 Swipe left/right = next/prev<br>
+👉 Swipe up = random card<br>
+👉 Swipe down = start<br>
+👉 Hold = memorize toggle<br><br>
+
+👉 Enter answer in box + press Enter<br>
+👉 Green = correct, Red = wrong<br><br>
+
+<b>Tap to continue</b>
+</div>
 
 <div id="app">
     <div id="tabs">
@@ -144,12 +152,7 @@ button {
     <div id="controls"></div>
 </div>
 
-<div id="modal" onclick="closeModal(event)">
-    <div id="modalContent"></div>
-</div>
-
 <script>
-
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
 let deck=[], deckIndex=0;
@@ -160,8 +163,6 @@ const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
-const modal=document.getElementById("modal");
-const modalContent=document.getElementById("modalContent");
 
 /* ===== HAPTIC ===== */
 function haptic(pattern = 10){
@@ -177,7 +178,6 @@ let moved=false;
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
-
     isHold=false;
     moved=false;
 
@@ -192,7 +192,6 @@ card.addEventListener("pointerdown",(e)=>{
 card.addEventListener("pointermove",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
-
     if(Math.abs(dx)>10 || Math.abs(dy)>10){
         moved=true;
     }
@@ -206,18 +205,14 @@ card.addEventListener("pointerup",(e)=>{
 
     if(isHold) return;
 
-    if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>80){
-        if(dy>0) start();
-        else randomCard();
+    if(Math.abs(dx)<60 && Math.abs(dy)<60){
+        showAnswer();   // TAP = ANSWER (your request)
         return;
     }
 
-    if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>60){
+    if(Math.abs(dx)>Math.abs(dy)){
         dx>0 ? prev() : next();
-        return;
     }
-
-    showAnswer();
 });
 
 card.addEventListener("pointercancel",()=>{
@@ -231,7 +226,6 @@ function normalize(str){
 
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
-
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
 
@@ -318,20 +312,6 @@ function randomCard(){
     }
 }
 
-/* ===== FILE LOAD ===== */
-function loadFile(e){
-    const r=new FileReader();
-    r.onload=()=>{
-        answers=r.result.split("\n");
-        memorized=Array(answers.length).fill(false);
-        correct=Array(answers.length).fill(false);
-        wrong=Array(answers.length).fill(false);
-        q=0;
-        showQ();
-    };
-    r.readAsText(e.target.files[0]);
-}
-
 /* ===== INPUT ===== */
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
@@ -345,7 +325,7 @@ input.addEventListener("keydown",e=>{
         aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
         correct[q]=true;
     } else {
-        haptic([30, 40, 30]); // ❌ WRONG ANSWER HAPTIC
+        haptic([30, 40, 30]);
         aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
         wrong[q]=true;
     }
@@ -381,9 +361,6 @@ function renderButtons(){
 
     if(currentTab==="tools"){
         controls.innerHTML=
-            btn("Jump","jump()")+
-            btn("Fuzzy","setFuzzy()")+
-            btn("Stats","showStats()")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
