@@ -187,11 +187,17 @@ const modal = document.getElementById("modal");
 const modalContent = document.getElementById("modalContent");
 
 /* ===== ONLY CHANGE: FUZZY BUTTON ===== */
-function setFuzzy() {
-    modalContent.textContent = "hello";
-    modal.style.display = "flex";
-}
 
+function setFuzzy() {
+    let value = prompt("Set fuzzy threshold (0–100):", fuzzy);
+    if (value === null) return;
+
+    value = Number(value);
+    if (isNaN(value)) return;
+
+    fuzzy = Math.max(0, Math.min(100, value));
+}
+    
 /* ===== HAPTIC ===== */
 function haptic(pattern = 10) {
     if (navigator.vibrate) navigator.vibrate(pattern);
