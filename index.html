@@ -47,7 +47,7 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
-    touch-action: pan-y;
+    touch-action: none;
 }
 
 #question {
@@ -97,7 +97,7 @@ button {
     color: #eee;
     border-radius: 8px;
 }
-    
+
 #card::after {
     content: "← swipe →";
     position: absolute;
@@ -107,11 +107,11 @@ button {
     color: #555;
     pointer-events: none;
 }
-    
+
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
-/* ===== MODAL ===== */
+/* MODAL */
 #modal {
     position: fixed;
     inset: 0;
@@ -132,21 +132,14 @@ button {
     overflow-y: auto;
 }
 
-#modal h2 {
-    margin-top: 0;
-}
-
-.modalBtn {
-    width: 100%;
-    margin-top: 8px;
-}
+#modal h2 { margin-top: 0; }
+.modalBtn { width: 100%; margin-top: 8px; }
 </style>
 </head>
 
 <body>
 
 <div id="app">
-
     <div id="tabs">
         <div class="tab active" onclick="setTab('nav', this)">Nav</div>
         <div class="tab" onclick="setTab('actions', this)">Actions</div>
@@ -165,13 +158,11 @@ button {
     <div id="controls"></div>
 </div>
 
-<!-- MODAL -->
 <div id="modal" onclick="closeModal(event)">
     <div id="modalContent"></div>
 </div>
 
 <script>
-
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
 let deck=[], deckIndex=0;
@@ -185,26 +176,69 @@ const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
 
-/* ===== SWIPE ===== */
+/* ===== GESTURES (FIXED) ===== */
 let startX=0, startY=0;
+let holdTimer=null;
+let moved=false;
+let holdTriggered=false;
 
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
+    moved=false;
+    holdTriggered=false;
+
+    holdTimer=setTimeout(()=>{
+        holdTriggered=true;
+        toggleMem(); // HOLD
+    },500);
 });
 
-card.addEventListener("pointerup",(e)=>{
+card.addEventListener("pointermove",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
 
-    if(Math.abs(dx)<60) return;
-    if(Math.abs(dx)<Math.abs(dy)) return;
+    if(Math.abs(dx)>10 || Math.abs(dy)>10){
+        moved=true;
+    }
+});
 
-    dx>0 ? prev() : next();
+card.addEventListener("pointerup",(e)=>{
+    clearTimeout(holdTimer);
+
+    let dx=e.clientX-startX;
+    let dy=e.clientY-startY;
+
+    if(holdTriggered) return;
+
+    // TAP = Answer
+    if(!moved && Math.abs(dx)<10 && Math.abs(dy)<10){
+        showAnswer();
+        return;
+    }
+
+    // VERTICAL SWIPE
+    if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>60){
+        if(dy>0){
+            start();        // DOWN
+        } else {
+            randomCard();   // UP
+        }
+        return;
+    }
+
+    // HORIZONTAL SWIPE
+    if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>60){
+        if(dx>0) prev();
+        else next();
+    }
+});
+
+card.addEventListener("pointercancel",()=>{
+    clearTimeout(holdTimer);
 });
 
 /* ===== CORE ===== */
-
 function normalize(str){
     return str.toLowerCase().replace(/[^a-z0-9]/g,"");
 }
@@ -235,7 +269,6 @@ function similarityPercentage(a,b){
 }
 
 /* ===== NAV ===== */
-
 function next(){
     let i=q+2;
     while(i<answers.length && !isValidCard(i)) i+=2;
@@ -267,7 +300,6 @@ function isValidCard(i){
 }
 
 /* ===== DISPLAY ===== */
-
 function showQ(){
     if(!answers.length) return;
     let t=answers[q];
@@ -278,14 +310,12 @@ function showQ(){
 }
 
 /* ===== ACTIONS ===== */
-
 function showAnswer(){ aEl.textContent=answers[q+1]; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
 function toggleSkip(){ skipMode=!skipMode; showQ(); }
 function clearOutput(){ aEl.textContent=""; }
 
 /* ===== RANDOM ===== */
-
 function randomCard(){
     if(deckIndex>=deck.length){
         deck=[];
@@ -302,7 +332,6 @@ function randomCard(){
 }
 
 /* ===== FILE LOAD ===== */
-
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -316,8 +345,7 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL SYSTEM ===== */
-
+/* ===== MODAL ===== */
 function openModal(html){
     modalContent.innerHTML=html;
     modal.style.display="flex";
@@ -327,90 +355,7 @@ function closeModal(e){
     if(e.target===modal) modal.style.display="none";
 }
 
-/* ===== JUMP UI ===== */
-
-function jump(){
-    let html=`
-        <h2>Jump</h2>
-        <input id="jumpSearch" placeholder="Search..." style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
-        <div id="jumpResults"></div>
-    `;
-    openModal(html);
-
-    let input=document.getElementById("jumpSearch");
-    let resultsBox=document.getElementById("jumpResults");
-
-    input.oninput=()=>{
-        let query=input.value.toLowerCase();
-        let out="";
-
-        for(let i=0;i<answers.length;i+=2){
-            if(answers[i].toLowerCase().includes(query)){
-                let num=(i/2)+1;
-                out+=`<button class="modalBtn" onclick="q=${i};showQ();closeModal({target:modal});">[${num}] ${answers[i]}</button>`;
-            }
-        }
-
-        resultsBox.innerHTML=out || "<p>No matches</p>";
-    };
-}
-
-/* ===== STATS ===== */
-
-function showStats(){
-    let total=Math.floor(answers.length/2);
-    let c=0,w=0;
-
-    for(let i=0;i<correct.length;i++){
-        if(correct[i]) c++;
-        if(wrong[i]) w++;
-    }
-
-    let a=c+w;
-    let acc=a?(c/a*100):0;
-
-    openModal(`
-        <h2>Stats</h2>
-        <p>Total: ${total}</p>
-        <p>Attempted: ${a}</p>
-        <p>Correct: ${c}</p>
-        <p>Wrong: ${w}</p>
-        <p>Accuracy: ${acc.toFixed(1)}%</p>
-        <button onclick="closeModal({target:modal})">Close</button>
-    `);
-}
-
-/* ===== FUZZY ===== */
-function setFuzzy(){
-    openModal(`
-        <h2>Fuzzy</h2>
-
-        <input id="fuzzyInput"
-            type="number"
-            value="${fuzzy}"
-            placeholder="0 - 100"
-            style="
-                width:100%;
-                padding:12px;
-                background:#222;
-                color:#fff;
-                border:none;
-                border-radius:8px;
-                outline:none;
-                font-size:16px;
-                margin-bottom:10px;
-            "
-        >
-
-        <button class="modalBtn" onclick="
-            fuzzy = Number(document.getElementById('fuzzyInput').value);
-            closeModal({target:modal});
-        ">Save</button>
-    `);
-}
-
 /* ===== INPUT ===== */
-
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
 
@@ -429,7 +374,6 @@ input.addEventListener("keydown",e=>{
 });
 
 /* ===== UI ===== */
-
 function setTab(tab,el){
     currentTab=tab;
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
@@ -467,7 +411,7 @@ function renderButtons(){
 }
 
 renderButtons();
-
 </script>
+
 </body>
 </html>
