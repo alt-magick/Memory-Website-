@@ -47,7 +47,7 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
-    touch-action: pan-y;
+    touch-action: none; /* important for full gesture control */
 }
 
 #question {
@@ -98,16 +98,6 @@ button {
     border-radius: 8px;
 }
 
-#card::after {
-    content: "← swipe →";
-    position: absolute;
-    bottom: 8px;
-    right: 12px;
-    font-size: 12px;
-    color: #555;
-    pointer-events: none;
-}
-
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
@@ -130,15 +120,6 @@ button {
     padding: 16px;
     max-height: 80vh;
     overflow-y: auto;
-}
-
-#modal h2 {
-    margin-top: 0;
-}
-
-.modalBtn {
-    width: 100%;
-    margin-top: 8px;
 }
 </style>
 </head>
@@ -183,33 +164,63 @@ const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
 
-/* ===== SWIPE ===== */
+/* ===== SWIPE + TAP + HOLD ===== */
 let startX=0, startY=0;
+let holdTimer=null;
+let isHold=false;
+let moved=false;
 
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
+
+    isHold=false;
+    moved=false;
+
+    holdTimer=setTimeout(()=>{
+        if(!moved){
+            isHold=true;
+            toggleMem(); // HOLD = MEM
+        }
+    },500);
+});
+
+card.addEventListener("pointermove",(e)=>{
+    let dx=e.clientX-startX;
+    let dy=e.clientY-startY;
+
+    if(Math.abs(dx)>10 || Math.abs(dy)>10){
+        moved=true;
+    }
 });
 
 card.addEventListener("pointerup",(e)=>{
-    let dx = e.clientX - startX;
-    let dy = e.clientY - startY;
+    clearTimeout(holdTimer);
 
-    // ===== VERTICAL SWIPE =====
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 80) {
-        if (dy > 0) {
-            start();       // down
-        } else {
-            randomCard();  // up
-        }
+    let dx=e.clientX-startX;
+    let dy=e.clientY-startY;
+
+    if(isHold) return;
+
+    // vertical swipe
+    if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>80){
+        if(dy>0) start();
+        else randomCard();
         return;
     }
 
-    // ===== HORIZONTAL SWIPE =====
-    if (Math.abs(dx) < 60) return;
-    if (Math.abs(dx) < Math.abs(dy)) return;
+    // horizontal swipe
+    if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>60){
+        dx>0 ? prev() : next();
+        return;
+    }
 
-    dx > 0 ? prev() : next();
+    // TAP
+    showAnswer();
+});
+
+card.addEventListener("pointercancel",()=>{
+    clearTimeout(holdTimer);
 });
 
 /* ===== CORE ===== */
