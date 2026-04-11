@@ -47,7 +47,7 @@ html, body {
     padding: 16px;
     min-height: 0;
     position: relative;
-    touch-action: none;
+    touch-action: pan-y;
 }
 
 #question {
@@ -97,9 +97,9 @@ button {
     color: #eee;
     border-radius: 8px;
 }
-
+    
 #card::after {
-    content: "← swipe → ↑ ↓ tap hold";
+    content: "← swipe →";
     position: absolute;
     bottom: 8px;
     right: 12px;
@@ -107,11 +107,11 @@ button {
     color: #555;
     pointer-events: none;
 }
-
+    
 .correct { color: #6f6; }
 .wrong { color: #f66; }
 
-/* MODAL */
+/* ===== MODAL ===== */
 #modal {
     position: fixed;
     inset: 0;
@@ -132,6 +132,10 @@ button {
     overflow-y: auto;
 }
 
+#modal h2 {
+    margin-top: 0;
+}
+
 .modalBtn {
     width: 100%;
     margin-top: 8px;
@@ -140,6 +144,7 @@ button {
 </head>
 
 <body>
+
 <div id="app">
 
     <div id="tabs">
@@ -166,8 +171,10 @@ button {
 </div>
 
 <script>
+
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
+let deck=[], deckIndex=0;
 let currentTab="nav";
 
 const qEl=document.getElementById("question");
@@ -178,51 +185,89 @@ const card=document.getElementById("card");
 const modal=document.getElementById("modal");
 const modalContent=document.getElementById("modalContent");
 
-/* ===== SWIPE + TAP + HOLD ===== */
+/* ===== SWIPE ===== */
 let startX=0, startY=0;
-let holdTimer=null;
-let moved=false;
 
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
-    moved=false;
-
-    holdTimer=setTimeout(()=>{
-        toggleMem(); // HOLD
-    },500);
-});
-
-card.addEventListener("pointermove",(e)=>{
-    if(Math.abs(e.clientX-startX)>10 || Math.abs(e.clientY-startY)>10){
-        moved=true;
-    }
 });
 
 card.addEventListener("pointerup",(e)=>{
-    clearTimeout(holdTimer);
-
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
 
-    if(Math.abs(dx)<30 && Math.abs(dy)<30){
-        if(!moved) showAnswer(); // TAP
-        return;
-    }
+    if(Math.abs(dx)<60) return;
+    if(Math.abs(dx)<Math.abs(dy)) return;
 
-    // VERTICAL SWIPE
-    if(Math.abs(dy)>Math.abs(dx)){
-        if(dy<-80) randomCard();   // UP
-        else if(dy>80) start();    // DOWN
-        return;
-    }
-
-    // HORIZONTAL SWIPE
-    if(dx>60) prev();
-    else if(dx<-60) next();
+    dx>0 ? prev() : next();
 });
 
 /* ===== CORE ===== */
+
+function normalize(str){
+    return str.toLowerCase().replace(/[^a-z0-9]/g,"");
+}
+
+function similarityPercentage(a,b){
+    a=normalize(a); b=normalize(b);
+    if(!a.length && !b.length) return 100;
+    if(!a.length || !b.length) return 0;
+
+    let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
+
+    for(let i=0;i<=a.length;i++) dp[i][0]=i;
+    for(let j=0;j<=b.length;j++) dp[0][j]=j;
+
+    for(let i=1;i<=a.length;i++){
+        for(let j=1;j<=b.length;j++){
+            dp[i][j]=Math.min(
+                dp[i-1][j]+1,
+                dp[i][j-1]+1,
+                dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1)
+            );
+        }
+    }
+
+    let dist=dp[a.length][b.length];
+    let maxLen=Math.max(a.length,b.length);
+    return 100-(dist/maxLen)*100;
+}
+
+/* ===== NAV ===== */
+
+function next(){
+    let i=q+2;
+    while(i<answers.length && !isValidCard(i)) i+=2;
+    if(i>=answers.length){
+        i=0;
+        while(i<answers.length && !isValidCard(i)) i+=2;
+    }
+    q=i;
+    showQ();
+}
+
+function prev(){
+    let i=q-2;
+    while(i>=0 && !isValidCard(i)) i-=2;
+    if(i<0){
+        i=answers.length-2;
+        while(i>=0 && !isValidCard(i)) i-=2;
+    }
+    q=i;
+    showQ();
+}
+
+function start(){ q=0; showQ(); }
+
+function isValidCard(i){
+    if(i<0||i>=answers.length) return false;
+    if(skipMode && memorized[i]) return false;
+    return true;
+}
+
+/* ===== DISPLAY ===== */
+
 function showQ(){
     if(!answers.length) return;
     let t=answers[q];
@@ -232,40 +277,32 @@ function showQ(){
     aEl.textContent="";
 }
 
-function showAnswer(){
-    aEl.textContent=answers[q+1]||"";
-}
+/* ===== ACTIONS ===== */
 
-function toggleMem(){
-    memorized[q]=!memorized[q];
-    showQ();
-}
-
-function toggleSkip(){
-    skipMode=!skipMode;
-    showQ();
-}
-
-function start(){ q=0; showQ(); }
-
-/* ===== NAV ===== */
-function next(){
-    q=(q+2)%answers.length;
-    showQ();
-}
-
-function prev(){
-    q=(q-2+answers.length)%answers.length;
-    showQ();
-}
+function showAnswer(){ aEl.textContent=answers[q+1]; }
+function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
+function toggleSkip(){ skipMode=!skipMode; showQ(); }
+function clearOutput(){ aEl.textContent=""; }
 
 /* ===== RANDOM ===== */
+
 function randomCard(){
-    q=Math.floor(Math.random()*(answers.length/2))*2;
-    showQ();
+    if(deckIndex>=deck.length){
+        deck=[];
+        for(let i=0;i<answers.length;i+=2){
+            if(isValidCard(i)) deck.push(i);
+        }
+        deck.sort(()=>Math.random()-0.5);
+        deckIndex=0;
+    }
+    if(deck.length){
+        q=deck[deckIndex++];
+        showQ();
+    }
 }
 
-/* ===== FILE ===== */
+/* ===== FILE LOAD ===== */
+
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -279,7 +316,8 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL ===== */
+/* ===== MODAL SYSTEM ===== */
+
 function openModal(html){
     modalContent.innerHTML=html;
     modal.style.display="flex";
@@ -289,82 +327,145 @@ function closeModal(e){
     if(e.target===modal) modal.style.display="none";
 }
 
-/* ===== JUMP ===== */
+/* ===== JUMP UI ===== */
+
 function jump(){
-    openModal(`
+    let html=`
         <h2>Jump</h2>
-        <input id="jumpInput" style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
-        <div id="results"></div>
-    `);
+        <input id="jumpSearch" placeholder="Search..." style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
+        <div id="jumpResults"></div>
+    `;
+    openModal(html);
 
-    let inp=document.getElementById("jumpInput");
-    let res=document.getElementById("results");
+    let input=document.getElementById("jumpSearch");
+    let resultsBox=document.getElementById("jumpResults");
 
-    inp.oninput=()=>{
-        let v=inp.value.toLowerCase();
+    input.oninput=()=>{
+        let query=input.value.toLowerCase();
         let out="";
+
         for(let i=0;i<answers.length;i+=2){
-            if(answers[i].toLowerCase().includes(v)){
-                out+=`<button class="modalBtn" onclick="q=${i};showQ();closeModal({target:modal})">${answers[i]}</button>`;
+            if(answers[i].toLowerCase().includes(query)){
+                let num=(i/2)+1;
+                out+=`<button class="modalBtn" onclick="q=${i};showQ();closeModal({target:modal});">[${num}] ${answers[i]}</button>`;
             }
         }
-        res.innerHTML=out||"No matches";
+
+        resultsBox.innerHTML=out || "<p>No matches</p>";
     };
 }
 
 /* ===== STATS ===== */
+
 function showStats(){
+    let total=Math.floor(answers.length/2);
     let c=0,w=0;
+
     for(let i=0;i<correct.length;i++){
         if(correct[i]) c++;
         if(wrong[i]) w++;
     }
-    openModal(`<h2>Stats</h2>
+
+    let a=c+w;
+    let acc=a?(c/a*100):0;
+
+    openModal(`
+        <h2>Stats</h2>
+        <p>Total: ${total}</p>
+        <p>Attempted: ${a}</p>
         <p>Correct: ${c}</p>
         <p>Wrong: ${w}</p>
-        <button onclick="closeModal({target:modal})">Close</button>`);
+        <p>Accuracy: ${acc.toFixed(1)}%</p>
+        <button onclick="closeModal({target:modal})">Close</button>
+    `);
 }
 
 /* ===== FUZZY ===== */
 function setFuzzy(){
     openModal(`
         <h2>Fuzzy</h2>
-        <input id="fuzzyInput" value="${fuzzy}" type="number"
-        style="width:100%;padding:10px;background:#222;color:#fff;border:none;border-radius:8px;">
+
+        <input id="fuzzyInput"
+            type="number"
+            value="${fuzzy}"
+            placeholder="0 - 100"
+            style="
+                width:100%;
+                padding:12px;
+                background:#222;
+                color:#fff;
+                border:none;
+                border-radius:8px;
+                outline:none;
+                font-size:16px;
+                margin-bottom:10px;
+            "
+        >
+
         <button class="modalBtn" onclick="
-            fuzzy=document.getElementById('fuzzyInput').value;
+            fuzzy = Number(document.getElementById('fuzzyInput').value);
             closeModal({target:modal});
         ">Save</button>
     `);
 }
 
 /* ===== INPUT ===== */
+
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
-    aEl.textContent=answers[q+1]||"";
+
+    let val=input.value;
+    input.value="";
+
+    let sim=similarityPercentage(val,answers[q+1]);
+
+    if(sim>=fuzzy){
+        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span>`;
+        correct[q]=true;
+    } else {
+        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span>`;
+        wrong[q]=true;
+    }
 });
 
 /* ===== UI ===== */
+
 function setTab(tab,el){
+    currentTab=tab;
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     el.classList.add("active");
+    renderButtons();
 }
 
 function renderButtons(){
-    controls.innerHTML=`
-        <button onclick="prev()">Prev</button>
-        <button onclick="next()">Next</button>
-        <button onclick="start()">Start</button>
-        <button onclick="randomCard()">Random</button>
-        <button onclick="showAnswer()">Answer</button>
-        <button onclick="toggleMem()">Mem</button>
-        <button onclick="toggleSkip()">Skip</button>
-        <button onclick="jump()">Jump</button>
-        <button onclick="setFuzzy()">Fuzzy</button>
-        <button onclick="showStats()">Stats</button>
-        <input type="file" onchange="loadFile(event)">
-    `;
+    controls.innerHTML="";
+    const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
+
+    if(currentTab==="nav"){
+        controls.innerHTML=
+            btn("Prev","prev()")+
+            btn("Next","next()")+
+            btn("Start","start()")+
+            btn("Random","randomCard()");
+    }
+
+    if(currentTab==="actions"){
+        controls.innerHTML=
+            btn("Answer","showAnswer()")+
+            btn("Mem","toggleMem()")+
+            btn("Skip","toggleSkip()")+
+            btn("Clear","clearOutput()");
+    }
+
+    if(currentTab==="tools"){
+        controls.innerHTML=
+            btn("Jump","jump()")+
+            btn("Fuzzy","setFuzzy()")+
+            btn("Stats","showStats()")+
+            `<input type="file" onchange="loadFile(event)">`;
+    }
 }
+
 renderButtons();
 
 </script>
