@@ -4,8 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Flashcards</title>
+
 <style>
 * { box-sizing: border-box; }
+
 html, body {
     height: 100%;
     margin: 0;
@@ -14,17 +16,20 @@ html, body {
     font-family: system-ui;
     overflow: hidden;
 }
+
 #app {
     height: 100dvh;
     display: flex;
     flex-direction: column;
 }
+
 /* TABS */
 #tabs {
     display: flex;
     background: #1a1a1a;
     flex-shrink: 0;
 }
+
 .tab {
     flex: 1;
     padding: 12px;
@@ -32,50 +37,47 @@ html, body {
     background: #222;
     user-select: none;
 }
+
 .tab.active { background: #444; }
+
 /* CARD */
 #card {
     flex: 1;
     overflow-y: auto;
     padding: 16px;
-    min-height: 0;
     position: relative;
     touch-action: pan-y;
 }
+
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
     margin-bottom: 16px;
 }
+
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
 }
-/* INPUT */
-#inputBox {
-    flex-shrink: 0;
-    padding: 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
-    background: #1a1a1a;
+
+#card::after {
+    content: "← swipe →";
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: #555;
 }
-#answerInput {
-    width: 100%;
-    padding: 14px;
-    font-size: 16px;
-    border: none;
-    border-radius: 8px;
-    background: #222;
-    color: #eee;
-    outline: none;
-}
+
 /* CONTROLS */
 #controls {
     flex-shrink: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     padding: 10px;
     background: #1a1a1a;
 }
+
 button {
     padding: 14px;
     font-size: 15px;
@@ -84,45 +86,21 @@ button {
     color: #eee;
     border-radius: 8px;
 }
-#card::after {
-    content: "← swipe →";
+
+/* HIDDEN COMMAND INPUT */
+#cmd {
     position: absolute;
-    bottom: 8px;
-    right: 12px;
-    font-size: 12px;
-    color: #555;
+    opacity: 0;
     pointer-events: none;
+    height: 0;
+    width: 0;
 }
+
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-/* ===== MODAL ===== */
-#modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-#modalContent {
-    width: 100%;
-    max-width: 500px;
-    background: #1b1b1b;
-    border-radius: 12px;
-    padding: 16px;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-#modal h2 {
-    margin-top: 0;
-}
-.modalBtn {
-    width: 100%;
-    margin-top: 8px;
-}
 </style>
 </head>
+
 <body>
 
 <div id="app">
@@ -137,17 +115,11 @@ button {
         <div id="answer"></div>
     </div>
 
-    <div id="inputBox">
-        <input id="answerInput" placeholder="Type answer..." />
-    </div>
-
     <div id="controls"></div>
 </div>
 
-<!-- MODAL -->
-<div id="modal" onclick="closeModal(event)">
-    <div id="modalContent"></div>
-</div>
+<!-- Hidden keyboard catcher -->
+<input id="cmd" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
 
 <script>
 let answers=[], memorized=[], correct=[], wrong=[];
@@ -158,17 +130,24 @@ let currentTab="nav";
 const qEl=document.getElementById("question");
 const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
-const input=document.getElementById("answerInput");
+const cmd=document.getElementById("cmd");
 const card=document.getElementById("card");
-const modal=document.getElementById("modal");
-const modalContent=document.getElementById("modalContent");
+
+/* ===== KEEP MOBILE KEYBOARD OPEN ===== */
+function keepFocus(){
+    if (document.activeElement !== cmd) cmd.focus();
+}
+setInterval(keepFocus, 300);
+document.body.addEventListener("touchstart", () => cmd.focus());
 
 /* ===== SWIPE ===== */
 let startX=0, startY=0;
+
 card.addEventListener("pointerdown",(e)=>{
     startX=e.clientX;
     startY=e.clientY;
 });
+
 card.addEventListener("pointerup",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
@@ -179,15 +158,19 @@ card.addEventListener("pointerup",(e)=>{
 
 /* ===== CORE ===== */
 function normalize(str){
-    return str.toLowerCase().replace(/[^a-z0-9]/g,"");
+    return (str||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 }
+
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
+
     let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
+
     for(let i=0;i<=a.length;i++) dp[i][0]=i;
     for(let j=0;j<=b.length;j++) dp[0][j]=j;
+
     for(let i=1;i<=a.length;i++){
         for(let j=1;j<=b.length;j++){
             dp[i][j]=Math.min(
@@ -197,43 +180,21 @@ function similarityPercentage(a,b){
             );
         }
     }
+
     let dist=dp[a.length][b.length];
     let maxLen=Math.max(a.length,b.length);
     return 100-(dist/maxLen)*100;
 }
 
 /* ===== NAV ===== */
-function next(){
-    let i=q+2;
-    while(i<answers.length && !isValidCard(i)) i+=2;
-    if(i>=answers.length){
-        i=0;
-        while(i<answers.length && !isValidCard(i)) i+=2;
-    }
-    q=i;
-    showQ();
-}
-function prev(){
-    let i=q-2;
-    while(i>=0 && !isValidCard(i)) i-=2;
-    if(i<0){
-        i=answers.length-2;
-        while(i>=0 && !isValidCard(i)) i-=2;
-    }
-    q=i;
-    showQ();
-}
+function next(){ q = Math.min(q+2, answers.length-2); showQ(); }
+function prev(){ q = Math.max(q-2, 0); showQ(); }
 function start(){ q=0; showQ(); }
-function isValidCard(i){
-    if(i<0||i>=answers.length) return false;
-    if(skipMode && memorized[i]) return false;
-    return true;
-}
 
 /* ===== DISPLAY ===== */
 function showQ(){
     if(!answers.length) return;
-    let t=answers[q];
+    let t=answers[q]||"";
     if(memorized[q]) t+=" [MEM]";
     if(skipMode) t+=" [SKIP]";
     qEl.textContent=t;
@@ -241,7 +202,7 @@ function showQ(){
 }
 
 /* ===== ACTIONS ===== */
-function showAnswer(){ aEl.textContent=answers[q+1]; }
+function showAnswer(){ aEl.textContent=answers[q+1]||""; }
 function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
 function toggleSkip(){ skipMode=!skipMode; showQ(); }
 function clearOutput(){ aEl.textContent=""; }
@@ -251,22 +212,54 @@ function randomCard(){
     if(deckIndex>=deck.length){
         deck=[];
         for(let i=0;i<answers.length;i+=2){
-            if(isValidCard(i)) deck.push(i);
+            deck.push(i);
         }
         deck.sort(()=>Math.random()-0.5);
         deckIndex=0;
     }
-    if(deck.length){
-        q=deck[deckIndex++];
-        showQ();
-    }
+    q=deck[deckIndex++]||0;
+    showQ();
 }
+
+/* ===== COMMAND ENGINE (NO INPUT BOX) ===== */
+cmd.addEventListener("input", () => {
+    const val = cmd.value.trim().toLowerCase();
+    cmd.value = "";
+
+    if(!val) return;
+
+    // COMMANDS
+    switch(val){
+        case "n": next(); return;
+        case "p": prev(); return;
+        case "a": showAnswer(); return;
+        case "m": toggleMem(); return;
+        case "v": toggleSkip(); return;
+        case "c": clearOutput(); return;
+        case "r": randomCard(); return;
+        case "s": start(); return;
+        case "j": jump(); return;
+        case "f": setFuzzy(); return;
+        case "t": showStats(); return;
+    }
+
+    // ANSWER MODE
+    let sim = similarityPercentage(val, answers[q+1]);
+
+    if(sim >= fuzzy){
+        aEl.innerHTML = `<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
+        correct[q]=true;
+    } else {
+        aEl.innerHTML = `<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
+        wrong[q]=true;
+    }
+});
 
 /* ===== FILE LOAD ===== */
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
-        answers=r.result.split("\n");
+        answers=r.result.split("\n").filter(x=>x.trim()!=="");
         memorized=Array(answers.length).fill(false);
         correct=Array(answers.length).fill(false);
         wrong=Array(answers.length).fill(false);
@@ -276,64 +269,16 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL SYSTEM ===== */
-function openModal(html){
-    modalContent.innerHTML=html;
-    modal.style.display="flex";
-}
-function closeModal(e){
-    if(e.target===modal) modal.style.display="none";
+/* ===== STUBS ===== */
+function jump(){ q = prompt("Jump to card #")*2 || 0; showQ(); }
+function setFuzzy(){ fuzzy = Number(prompt("Fuzzy (0-100)", fuzzy)); }
+function showStats(){
+    alert(`Correct: ${correct.filter(Boolean).length}\nWrong: ${wrong.filter(Boolean).length}`);
 }
 
-/* ===== INPUT (UPDATED) ===== */
-input.addEventListener("keydown",e=>{
-    if(e.key!=="Enter") return;
-    let val=input.value;
-    input.value="";
-    let sim=similarityPercentage(val,answers[q+1]);
-
-    if(sim>=fuzzy){
-        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
-        correct[q]=true;
-    } else {
-        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q+1]}`;
-        wrong[q]=true;
-    }
-});
-
-/* ===== UI ===== */
-function setTab(tab,el){
-    currentTab=tab;
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    el.classList.add("active");
-    renderButtons();
-}
-function renderButtons(){
-    controls.innerHTML="";
-    const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
-    if(currentTab==="nav"){
-        controls.innerHTML=
-            btn("Prev","prev()")+
-            btn("Next","next()")+
-            btn("Start","start()")+
-            btn("Random","randomCard()");
-    }
-    if(currentTab==="actions"){
-        controls.innerHTML=
-            btn("Answer","showAnswer()")+
-            btn("Mem","toggleMem()")+
-            btn("Skip","toggleSkip()")+
-            btn("Clear","clearOutput()");
-    }
-    if(currentTab==="tools"){
-        controls.innerHTML=
-            btn("Jump","jump()")+
-            btn("Fuzzy","setFuzzy()")+
-            btn("Stats","showStats()")+
-            `<input type="file" onchange="loadFile(event)">`;
-    }
-}
-renderButtons();
+/* ===== INIT ===== */
+showQ();
+keepFocus();
 </script>
 
 </body>
