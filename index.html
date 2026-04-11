@@ -175,17 +175,17 @@ const card=document.getElementById("card");
 
 /* ===== KEY MAP ===== */
 const keyMap = {
-    q: "prev",
-    w: "next",
-    e: "start",
+    p: "prev",
+    n: "next",
+    s: "start",
     r: "randomCard",
     a: "showAnswer",
-    s: "toggleMem",
-    d: "toggleSkip",
-    f: "clearOutput",
-    z: "jump",
-    x: "setFuzzy",
-    c: "showStats"
+    m: "toggleMem",
+    v: "toggleSkip",
+    c: "clearOutput",
+    j: "jump",
+    f: "setFuzzy",
+    t: "showStats"
 };
 
 /* ===== SWIPE ===== */
@@ -346,25 +346,25 @@ function renderButtons(){
 
     if(currentTab==="nav"){
         controls.innerHTML=
-            btn("Prev","prev","Q")+
-            btn("Next","next","W")+
-            btn("Start","start","E")+
+            btn("Prev","prev","P")+
+            btn("Next","next","N")+
+            btn("Start","start","S")+
             btn("Random","randomCard","R");
     }
 
     if(currentTab==="actions"){
         controls.innerHTML=
             btn("Answer","showAnswer","A")+
-            btn("Mem","toggleMem","S")+
-            btn("Skip","toggleSkip","D")+
-            btn("Clear","clearOutput","F");
+            btn("Mem","toggleMem","M")+
+            btn("Skip","toggleSkip","V")+
+            btn("Clear","clearOutput","C");
     }
 
     if(currentTab==="tools"){
         controls.innerHTML=
-            btn("Jump","jump","Z")+
-            btn("Fuzzy","setFuzzy","X")+
-            btn("Stats","showStats","C")+
+            btn("Jump","jump","J")+
+            btn("Fuzzy","setFuzzy","F")+
+            btn("Stats","showStats","T")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
