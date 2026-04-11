@@ -110,36 +110,13 @@ button {
 
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-
-/* MODAL */
-#modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-#modalContent {
-    width: 100%;
-    max-width: 500px;
-    background: #1b1b1b;
-    border-radius: 12px;
-    padding: 16px;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-
-#modal h2 { margin-top: 0; }
-.modalBtn { width: 100%; margin-top: 8px; }
 </style>
 </head>
 
 <body>
 
 <div id="app">
+
     <div id="tabs">
         <div class="tab active" onclick="setTab('nav', this)">Nav</div>
         <div class="tab" onclick="setTab('actions', this)">Actions</div>
@@ -158,10 +135,6 @@ button {
     <div id="controls"></div>
 </div>
 
-<div id="modal" onclick="closeModal(event)">
-    <div id="modalContent"></div>
-</div>
-
 <script>
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
@@ -173,16 +146,23 @@ const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
-const modal=document.getElementById("modal");
-const modalContent=document.getElementById("modalContent");
 
-/* ===== GESTURES (FIXED) ===== */
+/* ===== SAFE GUARD (IMPORTANT FIX) ===== */
+function isButtonTarget(e){
+    return e.target.tagName === "BUTTON" || e.target.closest("button");
+}
+
+/* ===== GESTURES ===== */
 let startX=0, startY=0;
 let holdTimer=null;
 let moved=false;
 let holdTriggered=false;
 
 card.addEventListener("pointerdown",(e)=>{
+
+    // 🔴 FIX: allow buttons to work
+    if(isButtonTarget(e)) return;
+
     startX=e.clientX;
     startY=e.clientY;
     moved=false;
@@ -197,10 +177,7 @@ card.addEventListener("pointerdown",(e)=>{
 card.addEventListener("pointermove",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
-
-    if(Math.abs(dx)>10 || Math.abs(dy)>10){
-        moved=true;
-    }
+    if(Math.abs(dx)>10 || Math.abs(dy)>10) moved=true;
 });
 
 card.addEventListener("pointerup",(e)=>{
@@ -211,23 +188,19 @@ card.addEventListener("pointerup",(e)=>{
 
     if(holdTriggered) return;
 
-    // TAP = Answer
+    // TAP
     if(!moved && Math.abs(dx)<10 && Math.abs(dy)<10){
         showAnswer();
         return;
     }
 
-    // VERTICAL SWIPE
+    // VERTICAL
     if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>60){
-        if(dy>0){
-            start();        // DOWN
-        } else {
-            randomCard();   // UP
-        }
+        if(dy>0) start(); else randomCard();
         return;
     }
 
-    // HORIZONTAL SWIPE
+    // HORIZONTAL
     if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>60){
         if(dx>0) prev();
         else next();
@@ -271,64 +244,38 @@ function similarityPercentage(a,b){
 /* ===== NAV ===== */
 function next(){
     let i=q+2;
-    while(i<answers.length && !isValidCard(i)) i+=2;
-    if(i>=answers.length){
-        i=0;
-        while(i<answers.length && !isValidCard(i)) i+=2;
-    }
+    while(i<answers.length) i+=2;
+    if(i>=answers.length) i=0;
     q=i;
     showQ();
 }
 
 function prev(){
     let i=q-2;
-    while(i>=0 && !isValidCard(i)) i-=2;
-    if(i<0){
-        i=answers.length-2;
-        while(i>=0 && !isValidCard(i)) i-=2;
-    }
+    if(i<0) i=Math.max(0,answers.length-2);
     q=i;
     showQ();
 }
 
 function start(){ q=0; showQ(); }
 
-function isValidCard(i){
-    if(i<0||i>=answers.length) return false;
-    if(skipMode && memorized[i]) return false;
-    return true;
-}
-
-/* ===== DISPLAY ===== */
 function showQ(){
     if(!answers.length) return;
-    let t=answers[q];
-    if(memorized[q]) t+=" [MEM]";
-    if(skipMode) t+=" [SKIP]";
-    qEl.textContent=t;
+    qEl.textContent=answers[q]||"";
     aEl.textContent="";
 }
 
 /* ===== ACTIONS ===== */
-function showAnswer(){ aEl.textContent=answers[q+1]; }
-function toggleMem(){ memorized[q]=!memorized[q]; showQ(); }
-function toggleSkip(){ skipMode=!skipMode; showQ(); }
+function showAnswer(){ aEl.textContent=answers[q+1]||""; }
+function toggleMem(){ memorized[q]=!memorized[q]; }
+function toggleSkip(){ skipMode=!skipMode; }
 function clearOutput(){ aEl.textContent=""; }
 
 /* ===== RANDOM ===== */
 function randomCard(){
-    if(deckIndex>=deck.length){
-        deck=[];
-        for(let i=0;i<answers.length;i+=2){
-            if(isValidCard(i)) deck.push(i);
-        }
-        deck.sort(()=>Math.random()-0.5);
-        deckIndex=0;
-    }
-    if(deck.length){
-        q=deck[deckIndex++];
-        showQ();
-    }
+    let i=Math.floor(Math.random()*(answers.length/2))*2;
+    q=i;
+    showQ();
 }
 
 /* ===== FILE LOAD ===== */
@@ -345,23 +292,11 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL ===== */
-function openModal(html){
-    modalContent.innerHTML=html;
-    modal.style.display="flex";
-}
-
-function closeModal(e){
-    if(e.target===modal) modal.style.display="none";
-}
-
 /* ===== INPUT ===== */
 input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
-
     let val=input.value;
     input.value="";
-
     let sim=similarityPercentage(val,answers[q+1]);
 
     if(sim>=fuzzy){
@@ -389,23 +324,18 @@ function renderButtons(){
         controls.innerHTML=
             btn("Prev","prev()")+
             btn("Next","next()")+
-            btn("Start","start()")+
-            btn("Random","randomCard()");
+            btn("Start","start()");
     }
 
     if(currentTab==="actions"){
         controls.innerHTML=
             btn("Answer","showAnswer()")+
-            btn("Mem","toggleMem()")+
-            btn("Skip","toggleSkip()")+
-            btn("Clear","clearOutput()");
+            btn("Mem","toggleMem()");
     }
 
     if(currentTab==="tools"){
         controls.innerHTML=
-            btn("Jump","jump()")+
-            btn("Fuzzy","setFuzzy()")+
-            btn("Stats","showStats()")+
+            btn("Load","document.querySelector('input[type=file]').click()")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
