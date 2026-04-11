@@ -4,8 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Flashcards</title>
+
 <style>
 * { box-sizing: border-box; }
+
 html, body {
     height: 100%;
     margin: 0;
@@ -14,17 +16,20 @@ html, body {
     font-family: system-ui;
     overflow: hidden;
 }
+
 #app {
     height: 100dvh;
     display: flex;
     flex-direction: column;
 }
+
 /* TABS */
 #tabs {
     display: flex;
     background: #1a1a1a;
     flex-shrink: 0;
 }
+
 .tab {
     flex: 1;
     padding: 12px;
@@ -32,7 +37,9 @@ html, body {
     background: #222;
     user-select: none;
 }
+
 .tab.active { background: #444; }
+
 /* CARD */
 #card {
     flex: 1;
@@ -42,14 +49,17 @@ html, body {
     position: relative;
     touch-action: pan-y;
 }
+
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
     margin-bottom: 16px;
 }
+
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
 }
+
 /* INPUT */
 #inputBox {
     flex-shrink: 0;
@@ -57,6 +67,7 @@ html, body {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: #1a1a1a;
 }
+
 #answerInput {
     width: 100%;
     padding: 14px;
@@ -67,6 +78,7 @@ html, body {
     color: #eee;
     outline: none;
 }
+
 /* CONTROLS */
 #controls {
     flex-shrink: 0;
@@ -76,6 +88,7 @@ html, body {
     padding: 10px;
     background: #1a1a1a;
 }
+
 button {
     padding: 14px;
     font-size: 15px;
@@ -84,6 +97,7 @@ button {
     color: #eee;
     border-radius: 8px;
 }
+
 #card::after {
     content: "← swipe →";
     position: absolute;
@@ -93,9 +107,11 @@ button {
     color: #555;
     pointer-events: none;
 }
+
 .correct { color: #6f6; }
 .wrong { color: #f66; }
-/* ===== MODAL ===== */
+
+/* MODAL */
 #modal {
     position: fixed;
     inset: 0;
@@ -105,6 +121,7 @@ button {
     justify-content: center;
     padding: 20px;
 }
+
 #modalContent {
     width: 100%;
     max-width: 500px;
@@ -114,18 +131,13 @@ button {
     max-height: 80vh;
     overflow-y: auto;
 }
-#modal h2 {
-    margin-top: 0;
-}
-.modalBtn {
-    width: 100%;
-    margin-top: 8px;
-}
 </style>
 </head>
+
 <body>
 
 <div id="app">
+
     <div id="tabs">
         <div class="tab active" onclick="setTab('nav', this)">Nav</div>
         <div class="tab" onclick="setTab('actions', this)">Actions</div>
@@ -138,13 +150,13 @@ button {
     </div>
 
     <div id="inputBox">
-        <input id="answerInput" placeholder="Type answer..." />
+        <input id="answerInput" placeholder="Type answer or key..." />
     </div>
 
     <div id="controls"></div>
+
 </div>
 
-<!-- MODAL -->
 <div id="modal" onclick="closeModal(event)">
     <div id="modalContent"></div>
 </div>
@@ -160,15 +172,25 @@ const aEl=document.getElementById("answer");
 const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
-const modal=document.getElementById("modal");
-const modalContent=document.getElementById("modalContent");
+
+/* ===== KEY MAP ===== */
+const keyMap = {
+    q: "prev",
+    w: "next",
+    e: "start",
+    r: "randomCard",
+    a: "showAnswer",
+    s: "toggleMem",
+    d: "toggleSkip",
+    f: "clearOutput",
+    z: "jump",
+    x: "setFuzzy",
+    c: "showStats"
+};
 
 /* ===== SWIPE ===== */
-let startX=0, startY=0;
-card.addEventListener("pointerdown",(e)=>{
-    startX=e.clientX;
-    startY=e.clientY;
-});
+let startX=0,startY=0;
+card.addEventListener("pointerdown",(e)=>{startX=e.clientX;startY=e.clientY;});
 card.addEventListener("pointerup",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
@@ -181,13 +203,16 @@ card.addEventListener("pointerup",(e)=>{
 function normalize(str){
     return str.toLowerCase().replace(/[^a-z0-9]/g,"");
 }
+
 function similarityPercentage(a,b){
     a=normalize(a); b=normalize(b);
     if(!a.length && !b.length) return 100;
     if(!a.length || !b.length) return 0;
+
     let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
     for(let i=0;i<=a.length;i++) dp[i][0]=i;
     for(let j=0;j<=b.length;j++) dp[0][j]=j;
+
     for(let i=1;i<=a.length;i++){
         for(let j=1;j<=b.length;j++){
             dp[i][j]=Math.min(
@@ -197,6 +222,7 @@ function similarityPercentage(a,b){
             );
         }
     }
+
     let dist=dp[a.length][b.length];
     let maxLen=Math.max(a.length,b.length);
     return 100-(dist/maxLen)*100;
@@ -213,6 +239,7 @@ function next(){
     q=i;
     showQ();
 }
+
 function prev(){
     let i=q-2;
     while(i>=0 && !isValidCard(i)) i-=2;
@@ -223,7 +250,9 @@ function prev(){
     q=i;
     showQ();
 }
+
 function start(){ q=0; showQ(); }
+
 function isValidCard(i){
     if(i<0||i>=answers.length) return false;
     if(skipMode && memorized[i]) return false;
@@ -262,7 +291,7 @@ function randomCard(){
     }
 }
 
-/* ===== FILE LOAD ===== */
+/* ===== FILE ===== */
 function loadFile(e){
     const r=new FileReader();
     r.onload=()=>{
@@ -276,20 +305,20 @@ function loadFile(e){
     r.readAsText(e.target.files[0]);
 }
 
-/* ===== MODAL SYSTEM ===== */
-function openModal(html){
-    modalContent.innerHTML=html;
-    modal.style.display="flex";
-}
-function closeModal(e){
-    if(e.target===modal) modal.style.display="none";
-}
-
-/* ===== INPUT (UPDATED) ===== */
-input.addEventListener("keydown",e=>{
+/* ===== INPUT ===== */
+input.addEventListener("keydown", e=>{
     if(e.key!=="Enter") return;
-    let val=input.value;
+
+    let val=input.value.trim().toLowerCase();
     input.value="";
+
+    // KEY TRIGGER
+    if(val.length===1 && keyMap[val]){
+        window[keyMap[val]]();
+        return;
+    }
+
+    // NORMAL ANSWER
     let sim=similarityPercentage(val,answers[q+1]);
 
     if(sim>=fuzzy){
@@ -308,31 +337,38 @@ function setTab(tab,el){
     el.classList.add("active");
     renderButtons();
 }
+
 function renderButtons(){
     controls.innerHTML="";
-    const btn=(t,f)=>`<button onclick="${f}">${t}</button>`;
+
+    const btn=(label,fn,key)=>
+        `<button onclick="${fn}()">${label} [${key}]</button>`;
+
     if(currentTab==="nav"){
         controls.innerHTML=
-            btn("Prev","prev()")+
-            btn("Next","next()")+
-            btn("Start","start()")+
-            btn("Random","randomCard()");
+            btn("Prev","prev","Q")+
+            btn("Next","next","W")+
+            btn("Start","start","E")+
+            btn("Random","randomCard","R");
     }
+
     if(currentTab==="actions"){
         controls.innerHTML=
-            btn("Answer","showAnswer()")+
-            btn("Mem","toggleMem()")+
-            btn("Skip","toggleSkip()")+
-            btn("Clear","clearOutput()");
+            btn("Answer","showAnswer","A")+
+            btn("Mem","toggleMem","S")+
+            btn("Skip","toggleSkip","D")+
+            btn("Clear","clearOutput","F");
     }
+
     if(currentTab==="tools"){
         controls.innerHTML=
-            btn("Jump","jump()")+
-            btn("Fuzzy","setFuzzy()")+
-            btn("Stats","showStats()")+
+            btn("Jump","jump","Z")+
+            btn("Fuzzy","setFuzzy","X")+
+            btn("Stats","showStats","C")+
             `<input type="file" onchange="loadFile(event)">`;
     }
 }
+
 renderButtons();
 </script>
 
