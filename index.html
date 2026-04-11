@@ -45,6 +45,7 @@ html, body {
     flex: 1;
     overflow-y: auto;
     padding: 16px;
+    min-height: 0;
     position: relative;
     touch-action: pan-y;
 }
@@ -66,13 +67,14 @@ html, body {
     right: 12px;
     font-size: 12px;
     color: #555;
+    pointer-events: none;
 }
 
 /* CONTROLS */
 #controls {
     flex-shrink: 0;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 10px;
     background: #1a1a1a;
@@ -87,17 +89,18 @@ button {
     border-radius: 8px;
 }
 
-/* HIDDEN COMMAND INPUT */
-#cmd {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-    height: 0;
-    width: 0;
-}
-
 .correct { color: #6f6; }
 .wrong { color: #f66; }
+
+/* HIDDEN CMD INPUT */
+#cmd {
+    position: fixed;
+    opacity: 0;
+    pointer-events: none;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+}
 </style>
 </head>
 
@@ -118,8 +121,8 @@ button {
     <div id="controls"></div>
 </div>
 
-<!-- Hidden keyboard catcher -->
-<input id="cmd" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+<!-- Hidden keyboard input -->
+<input id="cmd" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
 <script>
 let answers=[], memorized=[], correct=[], wrong=[];
@@ -133,12 +136,12 @@ const controls=document.getElementById("controls");
 const cmd=document.getElementById("cmd");
 const card=document.getElementById("card");
 
-/* ===== KEEP MOBILE KEYBOARD OPEN ===== */
+/* ===== KEEP MOBILE KEYBOARD ACTIVE ===== */
 function keepFocus(){
     if (document.activeElement !== cmd) cmd.focus();
 }
 setInterval(keepFocus, 300);
-document.body.addEventListener("touchstart", () => cmd.focus());
+document.addEventListener("touchstart", () => cmd.focus());
 
 /* ===== SWIPE ===== */
 let startX=0, startY=0;
@@ -221,14 +224,12 @@ function randomCard(){
     showQ();
 }
 
-/* ===== COMMAND ENGINE (NO INPUT BOX) ===== */
+/* ===== COMMAND ENGINE ===== */
 cmd.addEventListener("input", () => {
     const val = cmd.value.trim().toLowerCase();
     cmd.value = "";
-
     if(!val) return;
 
-    // COMMANDS
     switch(val){
         case "n": next(); return;
         case "p": prev(); return;
@@ -243,7 +244,6 @@ cmd.addEventListener("input", () => {
         case "t": showStats(); return;
     }
 
-    // ANSWER MODE
     let sim = similarityPercentage(val, answers[q+1]);
 
     if(sim >= fuzzy){
@@ -270,8 +270,8 @@ function loadFile(e){
 }
 
 /* ===== STUBS ===== */
-function jump(){ q = prompt("Jump to card #")*2 || 0; showQ(); }
-function setFuzzy(){ fuzzy = Number(prompt("Fuzzy (0-100)", fuzzy)); }
+function jump(){ q = (prompt("Jump #")*2)||0; showQ(); }
+function setFuzzy(){ fuzzy = Number(prompt("Fuzzy", fuzzy)); }
 function showStats(){
     alert(`Correct: ${correct.filter(Boolean).length}\nWrong: ${wrong.filter(Boolean).length}`);
 }
