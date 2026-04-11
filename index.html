@@ -45,7 +45,6 @@ html, body {
     flex: 1;
     overflow-y: auto;
     padding: 16px;
-    min-height: 0;
     position: relative;
     touch-action: none;
 }
@@ -53,59 +52,43 @@ html, body {
 #question {
     font-size: clamp(22px, 6vw, 30px);
     color: #f6c344;
-    margin-bottom: 16px;
 }
 
 #answer {
     font-size: clamp(20px, 5.5vw, 26px);
+    margin-top: 12px;
 }
 
 /* INPUT */
 #inputBox {
-    flex-shrink: 0;
     padding: 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: #1a1a1a;
 }
 
 #answerInput {
     width: 100%;
     padding: 14px;
-    font-size: 16px;
     border: none;
     border-radius: 8px;
     background: #222;
     color: #eee;
-    outline: none;
 }
 
 /* CONTROLS */
 #controls {
-    flex-shrink: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     padding: 10px;
     background: #1a1a1a;
 }
 
 button {
-    padding: 14px;
-    font-size: 15px;
+    padding: 12px;
     border: none;
     background: #2a2a2a;
     color: #eee;
     border-radius: 8px;
-}
-
-#card::after {
-    content: "← swipe →";
-    position: absolute;
-    bottom: 8px;
-    right: 12px;
-    font-size: 12px;
-    color: #555;
-    pointer-events: none;
 }
 
 .correct { color: #6f6; }
@@ -124,7 +107,7 @@ button {
     </div>
 
     <div id="card">
-        <div id="question">Load a file</div>
+        <div id="question">Load file</div>
         <div id="answer"></div>
     </div>
 
@@ -138,7 +121,6 @@ button {
 <script>
 let answers=[], memorized=[], correct=[], wrong=[];
 let q=0, skipMode=false, fuzzy=50;
-let deck=[], deckIndex=0;
 let currentTab="nav";
 
 const qEl=document.getElementById("question");
@@ -147,29 +129,29 @@ const controls=document.getElementById("controls");
 const input=document.getElementById("answerInput");
 const card=document.getElementById("card");
 
-/* ===== SAFE GUARD (IMPORTANT FIX) ===== */
-function isButtonTarget(e){
-    return e.target.tagName === "BUTTON" || e.target.closest("button");
+/* ===== IMPORTANT FIX ===== */
+function isUIElement(e){
+    return e.target.closest("button") || e.target.closest("input") || e.target.closest("textarea");
 }
 
 /* ===== GESTURES ===== */
 let startX=0, startY=0;
 let holdTimer=null;
 let moved=false;
-let holdTriggered=false;
+let hold=false;
 
 card.addEventListener("pointerdown",(e)=>{
 
-    // 🔴 FIX: allow buttons to work
-    if(isButtonTarget(e)) return;
+    // ✅ FIX: allow buttons to work
+    if(isUIElement(e)) return;
 
     startX=e.clientX;
     startY=e.clientY;
     moved=false;
-    holdTriggered=false;
+    hold=false;
 
     holdTimer=setTimeout(()=>{
-        holdTriggered=true;
+        hold=true;
         toggleMem(); // HOLD
     },500);
 });
@@ -186,7 +168,7 @@ card.addEventListener("pointerup",(e)=>{
     let dx=e.clientX-startX;
     let dy=e.clientY-startY;
 
-    if(holdTriggered) return;
+    if(hold) return;
 
     // TAP
     if(!moved && Math.abs(dx)<10 && Math.abs(dy)<10){
@@ -196,7 +178,8 @@ card.addEventListener("pointerup",(e)=>{
 
     // VERTICAL
     if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>60){
-        if(dy>0) start(); else randomCard();
+        if(dy>0) start();
+        else randomCard();
         return;
     }
 
@@ -212,71 +195,30 @@ card.addEventListener("pointercancel",()=>{
 });
 
 /* ===== CORE ===== */
-function normalize(str){
-    return str.toLowerCase().replace(/[^a-z0-9]/g,"");
-}
-
-function similarityPercentage(a,b){
-    a=normalize(a); b=normalize(b);
-    if(!a.length && !b.length) return 100;
-    if(!a.length || !b.length) return 0;
-
-    let dp=Array(a.length+1).fill().map(()=>Array(b.length+1).fill(0));
-
-    for(let i=0;i<=a.length;i++) dp[i][0]=i;
-    for(let j=0;j<=b.length;j++) dp[0][j]=j;
-
-    for(let i=1;i<=a.length;i++){
-        for(let j=1;j<=b.length;j++){
-            dp[i][j]=Math.min(
-                dp[i-1][j]+1,
-                dp[i][j-1]+1,
-                dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1)
-            );
-        }
-    }
-
-    let dist=dp[a.length][b.length];
-    let maxLen=Math.max(a.length,b.length);
-    return 100-(dist/maxLen)*100;
-}
-
-/* ===== NAV ===== */
-function next(){
-    let i=q+2;
-    while(i<answers.length) i+=2;
-    if(i>=answers.length) i=0;
-    q=i;
-    showQ();
-}
-
-function prev(){
-    let i=q-2;
-    if(i<0) i=Math.max(0,answers.length-2);
-    q=i;
-    showQ();
-}
-
-function start(){ q=0; showQ(); }
-
 function showQ(){
     if(!answers.length) return;
     qEl.textContent=answers[q]||"";
     aEl.textContent="";
 }
 
+function showAnswer(){
+    aEl.textContent=answers[q+1]||"";
+}
+
+/* ===== NAV ===== */
+function next(){ q+=2; if(q>=answers.length) q=0; showQ(); }
+function prev(){ q-=2; if(q<0) q=0; showQ(); }
+function start(){ q=0; showQ(); }
+
+function randomCard(){
+    q=Math.floor(Math.random()*(answers.length/2))*2;
+    showQ();
+}
+
 /* ===== ACTIONS ===== */
-function showAnswer(){ aEl.textContent=answers[q+1]||""; }
 function toggleMem(){ memorized[q]=!memorized[q]; }
 function toggleSkip(){ skipMode=!skipMode; }
 function clearOutput(){ aEl.textContent=""; }
-
-/* ===== RANDOM ===== */
-function randomCard(){
-    let i=Math.floor(Math.random()*(answers.length/2))*2;
-    q=i;
-    showQ();
-}
 
 /* ===== FILE LOAD ===== */
 function loadFile(e){
@@ -297,15 +239,7 @@ input.addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
     let val=input.value;
     input.value="";
-    let sim=similarityPercentage(val,answers[q+1]);
-
-    if(sim>=fuzzy){
-        aEl.innerHTML=`<span class="correct">Correct ${sim.toFixed(0)}%</span>`;
-        correct[q]=true;
-    } else {
-        aEl.innerHTML=`<span class="wrong">Wrong ${sim.toFixed(0)}%</span>`;
-        wrong[q]=true;
-    }
+    aEl.innerHTML=`Answer: ${answers[q+1]}`;
 });
 
 /* ===== UI ===== */
@@ -324,13 +258,16 @@ function renderButtons(){
         controls.innerHTML=
             btn("Prev","prev()")+
             btn("Next","next()")+
-            btn("Start","start()");
+            btn("Start","start()")+
+            btn("Random","randomCard()");
     }
 
     if(currentTab==="actions"){
         controls.innerHTML=
             btn("Answer","showAnswer()")+
-            btn("Mem","toggleMem()");
+            btn("Mem","toggleMem()")+
+            btn("Skip","toggleSkip()")+
+            btn("Clear","clearOutput()");
     }
 
     if(currentTab==="tools"){
