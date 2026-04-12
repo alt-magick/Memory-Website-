@@ -309,7 +309,17 @@
             qEl.textContent = t;
             aEl.textContent = "";
         }
+        
+function setFuzzy() {
+    let value = prompt("Set fuzzy threshold (0–100):", fuzzy);
+    if (value === null) return;
 
+    value = Number(value);
+    if (isNaN(value)) return;
+
+    fuzzy = Math.max(0, Math.min(100, value));
+            }
+        
         /* ===== ACTIONS ===== */
         function showAnswer() { aEl.textContent = answers[q + 1]; }
         function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
