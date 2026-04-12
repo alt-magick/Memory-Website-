@@ -320,6 +320,27 @@ function setFuzzy() {
     fuzzy = Math.max(0, Math.min(100, value));
             }
         
+  function showStats() {
+    let total = answers.length / 2;
+
+    let correctCount = correct.filter(Boolean).length;
+    let wrongCount = wrong.filter(Boolean).length;
+    let memCount = memorized.filter(Boolean).length;
+
+    let attempted = correctCount + wrongCount;
+    let accuracy = attempted ? (correctCount / attempted) * 100 : 0;
+
+    modalContent.innerHTML =
+        "Stats<br><br>" +
+        "Total cards: " + total + "<br>" +
+        "Correct: " + correctCount + "<br>" +
+        "Wrong: " + wrongCount + "<br>" +
+        "Accuracy: " + accuracy.toFixed(1) + "%<br>" +
+        "Memorized: " + memCount;
+
+    modal.style.display = "flex";
+  }
+        
         /* ===== ACTIONS ===== */
         function showAnswer() { aEl.textContent = answers[q + 1]; }
         function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
