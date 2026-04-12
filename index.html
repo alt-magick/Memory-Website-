@@ -309,6 +309,9 @@
             qEl.textContent = t;
             aEl.textContent = "";
         }
+    modal.addEventListener("click", function () {
+    modal.style.display = "none";
+});
         
 function setFuzzy() {
     let value = prompt("Set fuzzy threshold (0–100):", fuzzy);
