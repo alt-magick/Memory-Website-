@@ -178,7 +178,9 @@
         const card = document.getElementById("card");
         const modal = document.getElementById("modal");
         const modalContent = document.getElementById("modalContent");
-
+modalContent.addEventListener("click", function (e) {
+    e.stopPropagation();
+});
         /* ===== HAPTIC ===== */
         function haptic(pattern = 10) {
             if (navigator.vibrate) navigator.vibrate(pattern);
