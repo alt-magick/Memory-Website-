@@ -321,7 +321,13 @@ function start() {
     q = 0;
     showQ();
 }
-
+    
+function closeModal(event) {
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+         }
+    
 function isValidCard(i) {
     if (i < 0 || i >= answers.length) return false;
     if (skipMode && memorized[i]) return false;
