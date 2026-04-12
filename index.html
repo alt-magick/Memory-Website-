@@ -343,6 +343,38 @@ function setFuzzy() {
 
     modal.style.display = "flex";
   }
+        function jump() {
+    modalContent.innerHTML = `
+        <h3>Search question cards</h3>
+        <input id="jumpInput"
+            type="text"
+            placeholder="Type to search..."
+            style="width:100%;padding:10px;font-size:16px;border-radius:8px;border:none;outline:none;background:#222;color:#eee;">
+        <br><br>
+        <button onclick="doJump()">Search</button>
+    `;
+
+    modal.style.display = "flex";
+}
+
+function doJump() {
+    let query = document.getElementById("jumpInput").value;
+    if (!query) return;
+
+    query = query.toLowerCase();
+
+    // search ONLY question cards (even indexes)
+    for (let i = 0; i < answers.length; i += 2) {
+        if ((answers[i] || "").toLowerCase().includes(query)) {
+            q = i;
+            showQ();
+            modal.style.display = "none";
+            return;
+        }
+    }
+
+    modalContent.innerHTML = "<p>No match found</p>";
+            }
         
         /* ===== ACTIONS ===== */
         function showAnswer() { aEl.textContent = answers[q + 1]; }
