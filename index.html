@@ -380,20 +380,18 @@ function doJump() {
     modalContent.innerHTML = "<p>No match found</p>";
             }
         
-        /* ===== ACTIONS ===== */        
-
+        /* ===== ACTIONS ===== */  
+        
 function showAnswer() {
     if (answerVisible) {
-        aEl.textContent = "";
-        aEl.innerHTML = "";   // 🔥 add this
+        aEl.innerHTML = "";
         answerVisible = false;
     } else {
-        aEl.textContent = answers[q + 1];
+        aEl.innerHTML = answers[q + 1];
         answerVisible = true;
     }
 }
 
-        
         function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
         function toggleSkip() { skipMode = !skipMode; showQ(); }
         function clearOutput() { aEl.textContent = ""; }
@@ -441,23 +439,24 @@ function randomCard() {
 
         /* ===== INPUT ===== */
         input.addEventListener("keydown", e => {
-            if (e.key !== "Enter") return;
+    if (e.key !== "Enter") return;
 
-            let val = input.value;
-            input.value = "";
+    let val = input.value;
+    input.value = "";
 
-            let sim = similarityPercentage(val, answers[q + 1]);
+    let sim = similarityPercentage(val, answers[q + 1]);
 
-            if (sim >= fuzzy) {
-                aEl.innerHTML = `<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
-                correct[q] = true;
-            } else {
-                haptic([30, 40, 30]);
-                aEl.innerHTML = `<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
-                wrong[q] = true;
-            }
-        });
+    if (sim >= fuzzy) {
+        aEl.innerHTML = `<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
+        correct[q] = true;
+    } else {
+        haptic([30, 40, 30]);
+        aEl.innerHTML = `<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
+        wrong[q] = true;
+    }
 
+    answerVisible = true; // 🔥 THIS is the key fix
+});
         /* ===== UI ===== */
         function setTab(tab, el) {
             currentTab = tab;
