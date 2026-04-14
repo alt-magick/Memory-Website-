@@ -165,97 +165,284 @@
         <div id="modalContent"></div>
     </div>
 
-<script>
-let answers = [], memorized = [], correct = [], wrong = [];
-let correctCount = 0; // ✅ NEW
-let wrongCount = 0;   // ✅ NEW
-
-let q = 0, skipMode = false, fuzzy = 50;
-let deck = [], deckIndex = 0;
-let currentTab = "nav";
-let answerVisible = false;
-
-const qEl = document.getElementById("question");
-const aEl = document.getElementById("answer");
-const controls = document.getElementById("controls");
-const input = document.getElementById("answerInput");
-const card = document.getElementById("card");
-const modal = document.getElementById("modal");
-const modalContent = document.getElementById("modalContent");
-
+    <script>
+        let answers = [], memorized = [], correct = [], wrong = [];
+let totalCorrect = 0, totalWrong = 0;
+        let q = 0, skipMode = false, fuzzy = 50;
+        let deck = [], deckIndex = 0;
+        let currentTab = "nav";
+        let answerVisible = false;
+        
+        const qEl = document.getElementById("question");
+        const aEl = document.getElementById("answer");
+        const controls = document.getElementById("controls");
+        const input = document.getElementById("answerInput");
+        const card = document.getElementById("card");
+        const modal = document.getElementById("modal");
+        const modalContent = document.getElementById("modalContent");
 modalContent.addEventListener("click", function (e) {
     e.stopPropagation();
 });
-
-/* ===== HAPTIC ===== */
-function haptic(pattern = 10) {
-    if (navigator.vibrate) navigator.vibrate(pattern);
-}
-
-/* ===== CORE ===== */
-function normalize(str) {
-    return str.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function similarityPercentage(a, b) {
-    a = normalize(a);
-    b = normalize(b);
-    if (!a.length && !b.length) return 100;
-    if (!a.length || !b.length) return 0;
-
-    let dp = Array(a.length + 1).fill().map(() => Array(b.length + 1).fill(0));
-
-    for (let i = 0; i <= a.length; i++) dp[i][0] = i;
-    for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-
-    for (let i = 1; i <= a.length; i++) {
-        for (let j = 1; j <= b.length; j++) {
-            dp[i][j] = Math.min(
-                dp[i - 1][j] + 1,
-                dp[i][j - 1] + 1,
-                dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-            );
+        /* ===== HAPTIC ===== */
+        function haptic(pattern = 10) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
         }
-    }
 
-    let dist = dp[a.length][b.length];
-    let maxLen = Math.max(a.length, b.length);
-    return 100 - (dist / maxLen) * 100;
-}
+        /* ===== SWIPE + TAP + HOLD ===== */
+        let startX = 0, startY = 0;
+        let holdTimer = null;
+        let isHold = false;
+        let moved = false;
 
-/* ===== DISPLAY ===== */
-function showQ() {
-    if (!answers.length) return;
-    let t = answers[q];
-    if (memorized[q]) t += " [MEM]";
-    if (skipMode) t += " [SKIP]";
-    qEl.textContent = t;
-    aEl.textContent = "";
-    answerVisible = false;
-}
+        card.addEventListener("pointerdown", (e) => {
+            startX = e.clientX;
+            startY = e.clientY;
+            isHold = false;
+            moved = false;
+            holdTimer = setTimeout(() => {
+                if (!moved) {
+                    isHold = true;
+                    toggleMem();
+                }
+            }, 500);
+        });
 
-/* ===== STATS ===== */
-function showStats() {
+        card.addEventListener("pointermove", (e) => {
+            let dx = e.clientX - startX;
+            let dy = e.clientY - startY;
+            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                moved = true;
+            }
+        });
+
+        card.addEventListener("pointerup", (e) => {
+            clearTimeout(holdTimer);
+
+            let dx = e.clientX - startX;
+            let dy = e.clientY - startY;
+
+            if (isHold) return;
+
+            if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 80) {
+                if (dy > 0) start();
+                else randomCard();
+                return;
+            }
+
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+                dx > 0 ? prev() : next();
+                return;
+            }
+
+            showAnswer();
+        });
+
+        card.addEventListener("pointercancel", () => {
+            clearTimeout(holdTimer);
+        });
+
+        /* ===== CORE ===== */
+        function normalize(str) {
+            return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+        }
+
+        function similarityPercentage(a, b) {
+            a = normalize(a);
+            b = normalize(b);
+
+            if (!a.length && !b.length) return 100;
+            if (!a.length || !b.length) return 0;
+
+            let dp = Array(a.length + 1).fill().map(() => Array(b.length + 1).fill(0));
+
+            for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+            for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+
+            for (let i = 1; i <= a.length; i++) {
+                for (let j = 1; j <= b.length; j++) {
+                    dp[i][j] = Math.min(
+                        dp[i - 1][j] + 1,
+                        dp[i][j - 1] + 1,
+                        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+                    );
+                }
+            }
+
+            let dist = dp[a.length][b.length];
+            let maxLen = Math.max(a.length, b.length);
+            return 100 - (dist / maxLen) * 100;
+        }
+
+        /* ===== NAV ===== */
+        function next() {
+            let i = q + 2;
+            while (i < answers.length && !isValidCard(i)) i += 2;
+            if (i >= answers.length) {
+                i = 0;
+                while (i < answers.length && !isValidCard(i)) i += 2;
+            }
+            q = i;
+            showQ();
+        }
+
+        function prev() {
+            let i = q - 2;
+            while (i >= 0 && !isValidCard(i)) i -= 2;
+            if (i < 0) {
+                i = answers.length - 2;
+                while (i >= 0 && !isValidCard(i)) i -= 2;
+            }
+            q = i;
+            showQ();
+        }
+
+        function start() { q = 0; showQ(); }
+
+        function isValidCard(i) {
+            if (i < 0 || i >= answers.length) return false;
+            if (skipMode && memorized[i]) return false;
+            return true;
+        }
+
+        /* ===== DISPLAY ===== */
+        function showQ() {
+            if (!answers.length) return;
+            let t = answers[q];
+            if (memorized[q]) t += " [MEM]";
+            if (skipMode) t += " [SKIP]";
+            qEl.textContent = t;
+            aEl.textContent = "";
+            answerVisible = false;
+        }
+    modal.addEventListener("click", function () {
+    modal.style.display = "none";
+});
+        
+function setFuzzy() {
+    let value = prompt("Set fuzzy threshold (0–100):", fuzzy);
+    if (value === null) return;
+
+    value = Number(value);
+    if (isNaN(value)) return;
+
+    fuzzy = Math.max(0, Math.min(100, value));
+            }
+        
+  function showStats() {
     let total = answers.length / 2;
+
+let correctCount = totalCorrect;
+let wrongCount = totalWrong;
+      
     let memCount = memorized.filter(Boolean).length;
 
-    let attempted = correctCount + wrongCount; // ✅ NEW
+    let attempted = correctCount + wrongCount;
     let accuracy = attempted ? (correctCount / attempted) * 100 : 0;
 
     modalContent.innerHTML =
         "Stats<br><br>" +
         "Total cards: " + total + "<br>" +
-        "Attempts: " + attempted + "<br>" +
         "Correct: " + correctCount + "<br>" +
         "Wrong: " + wrongCount + "<br>" +
         "Accuracy: " + accuracy.toFixed(1) + "%<br>" +
         "Memorized: " + memCount;
 
     modal.style.display = "flex";
+  }
+        function jump() {
+    modalContent.innerHTML = `
+        <h3>Search question cards</h3>
+        <input id="jumpInput"
+            type="text"
+            placeholder="Type to search..."
+            style="width:100%;padding:10px;font-size:16px;border-radius:8px;border:none;outline:none;background:#222;color:#eee;">
+        <br><br>
+        <button onclick="doJump()">Search</button>
+    `;
+
+    modal.style.display = "flex";
 }
 
-/* ===== INPUT ===== */
-input.addEventListener("keydown", e => {
+function doJump() {
+    let query = document.getElementById("jumpInput").value;
+    if (!query) return;
+
+    query = query.toLowerCase();
+
+    // search ONLY question cards (even indexes)
+    for (let i = 0; i < answers.length; i += 2) {
+        if ((answers[i] || "").toLowerCase().includes(query)) {
+            q = i;
+            showQ();
+            modal.style.display = "none";
+            return;
+        }
+    }
+
+    modalContent.innerHTML = "<p>No match found</p>";
+            }
+        
+        /* ===== ACTIONS ===== */  
+        
+function showAnswer() {
+    if (answerVisible) {
+        aEl.innerHTML = "";
+        answerVisible = false;
+    } else {
+        aEl.innerHTML = answers[q + 1];
+        answerVisible = true;
+    }
+}
+
+        function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
+        function toggleSkip() { skipMode = !skipMode; showQ(); }
+        function clearOutput() { aEl.textContent = ""; }
+
+        /* ===== RANDOM ===== */
+function randomCard() {
+    // rebuild if empty OR invalid cards exist
+    if (deckIndex >= deck.length) {
+        deck = [];
+        for (let i = 0; i < answers.length; i += 2) {
+            if (isValidCard(i)) deck.push(i);
+        }
+        deck.sort(() => Math.random() - 0.5);
+        deckIndex = 0;
+    }
+
+    // 🔥 skip invalid cards dynamically
+    while (deckIndex < deck.length && !isValidCard(deck[deckIndex])) {
+        deckIndex++;
+    }
+
+    if (deckIndex < deck.length) {
+        q = deck[deckIndex++];
+        showQ();
+    } else {
+        // rebuild if everything got filtered out
+        deck = [];
+        deckIndex = 0;
+        randomCard();
+    }
+}
+        /* ===== FILE LOAD ===== */
+        function loadFile(e) {
+            const r = new FileReader();
+            r.onload = () => {
+                answers = r.result.split("\n");
+                memorized = Array(answers.length).fill(false);
+                correct = Array(answers.length).fill(false);
+                wrong = Array(answers.length).fill(false);
+                totalCorrect = 0;
+                totalWrong = 0;
+                q = 0;
+                showQ();
+            };
+            r.readAsText(e.target.files[0]);
+        }
+
+        /* ===== INPUT ===== */
+        input.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
 
     let val = input.value;
@@ -264,37 +451,57 @@ input.addEventListener("keydown", e => {
     let sim = similarityPercentage(val, answers[q + 1]);
 
     if (sim >= fuzzy) {
-        correctCount++; // ✅ NEW
-        aEl.innerHTML = `<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
-        correct[q] = true;
-    } else {
-        wrongCount++; // ✅ NEW
-        haptic([30, 40, 30]);
-        aEl.innerHTML = `<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
-        wrong[q] = true;
+    totalCorrect++; // ✅ ADD
+    aEl.innerHTML = `<span class="correct">Correct ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
+    correct[q] = true;
+} else {
+    totalWrong++; // ✅ ADD
+    haptic([30, 40, 30]);
+    aEl.innerHTML = `<span class="wrong">Wrong ${sim.toFixed(0)}%</span><br>${answers[q + 1]}`;
+    wrong[q] = true;
     }
 
-    answerVisible = true;
+    answerVisible = true; // 🔥 THIS is the key fix
 });
+        /* ===== UI ===== */
+        function setTab(tab, el) {
+            currentTab = tab;
+            document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+            el.classList.add("active");
+            renderButtons();
+        }
 
-/* ===== FILE LOAD ===== */
-function loadFile(e) {
-    const r = new FileReader();
-    r.onload = () => {
-        answers = r.result.split("\n");
-        memorized = Array(answers.length).fill(false);
-        correct = Array(answers.length).fill(false);
-        wrong = Array(answers.length).fill(false);
+        function renderButtons() {
+            controls.innerHTML = "";
+            const btn = (t, f) => `<button onclick="${f}">${t}</button>`;
 
-        correctCount = 0; // ✅ NEW
-        wrongCount = 0;   // ✅ NEW
+            if (currentTab === "nav") {
+                controls.innerHTML =
+                    btn("Prev", "prev()") +
+                    btn("Next", "next()") +
+                    btn("Start", "start()") +
+                    btn("Random", "randomCard()");
+            }
 
-        q = 0;
-        showQ();
-    };
-    r.readAsText(e.target.files[0]);
-}
-</script>
+            if (currentTab === "actions") {
+                controls.innerHTML =
+                    btn("Answer", "showAnswer()") +
+                    btn("Mem", "toggleMem()") +
+                    btn("Skip", "toggleSkip()") +
+                    btn("Clear", "clearOutput()");
+            }
+
+            if (currentTab === "tools") {
+                controls.innerHTML =
+                    btn("Jump", "jump()") +
+                    btn("Fuzzy", "setFuzzy()") +
+                    btn("Stats", "showStats()") +
+                    `<input type="file" onchange="loadFile(event)">`;
+            }
+        }
+
+        renderButtons();
+    </script>
 
 </body>
 
