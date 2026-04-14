@@ -396,21 +396,32 @@ function doJump() {
         function clearOutput() { aEl.textContent = ""; }
 
         /* ===== RANDOM ===== */
-        function randomCard() {
-            if (deckIndex >= deck.length) {
-                deck = [];
-                for (let i = 0; i < answers.length; i += 2) {
-                    if (isValidCard(i)) deck.push(i);
-                }
-                deck.sort(() => Math.random() - 0.5);
-                deckIndex = 0;
-            }
-            if (deck.length) {
-                q = deck[deckIndex++];
-                showQ();
-            }
+function randomCard() {
+    // rebuild if empty OR invalid cards exist
+    if (deckIndex >= deck.length) {
+        deck = [];
+        for (let i = 0; i < answers.length; i += 2) {
+            if (isValidCard(i)) deck.push(i);
         }
+        deck.sort(() => Math.random() - 0.5);
+        deckIndex = 0;
+    }
 
+    // 🔥 skip invalid cards dynamically
+    while (deckIndex < deck.length && !isValidCard(deck[deckIndex])) {
+        deckIndex++;
+    }
+
+    if (deckIndex < deck.length) {
+        q = deck[deckIndex++];
+        showQ();
+    } else {
+        // rebuild if everything got filtered out
+        deck = [];
+        deckIndex = 0;
+        randomCard();
+    }
+}
         /* ===== FILE LOAD ===== */
         function loadFile(e) {
             const r = new FileReader();
