@@ -381,15 +381,18 @@ function doJump() {
             }
         
         /* ===== ACTIONS ===== */        
-        function showAnswer() {
+
+function showAnswer() {
     if (answerVisible) {
         aEl.textContent = "";
+        aEl.innerHTML = "";   // 🔥 add this
         answerVisible = false;
     } else {
         aEl.textContent = answers[q + 1];
         answerVisible = true;
     }
-        }
+}
+
         
         function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
         function toggleSkip() { skipMode = !skipMode; showQ(); }
