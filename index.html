@@ -132,6 +132,10 @@
             max-height: 80vh;
             overflow-y: auto;
         }
+        button.active-skip {
+    background: #f6c344;
+    color: #111;
+}
     </style>
 </head>
 
@@ -326,7 +330,7 @@ if (q + 1 >= answers.length) {
             if (!answers.length) return;
             let t = answers[q];
             if (memorized[q]) t += " [MEM]";
-            if (skipMode) t += " [SKIP]";
+            
             qEl.textContent = t;
             aEl.textContent = "";
             answerVisible = false;
@@ -415,7 +419,12 @@ if (q + 1 >= answers.length) return;
 }
 
         function toggleMem() { memorized[q] = !memorized[q]; showQ(); }
-        function toggleSkip() { skipMode = !skipMode; showQ(); }
+function toggleSkip() {
+    skipMode = !skipMode;
+    showQ();
+    renderButtons();
+}
+        
         function clearOutput() { aEl.textContent = ""; }
 
         /* ===== RANDOM ===== */
@@ -511,7 +520,7 @@ answers = r.result
                 controls.innerHTML =
                     btn("Answer", "showAnswer()") +
                     btn("Mem", "toggleMem()") +
-                    btn("Skip", "toggleSkip()") +
+                    `<button onclick="toggleSkip()" class="${skipMode ? 'active-skip' : ''}">Skip</button>` +
                     btn("Clear", "clearOutput()");
             }
 
