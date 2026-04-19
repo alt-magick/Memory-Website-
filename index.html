@@ -284,18 +284,30 @@ modalContent.addEventListener("click", function (e) {
             q = i;
             showQ();
         }
+function lastQuestionIndex() {
+    let i = answers.length - 2;
+    if (i % 2 !== 0) i--; // force even index
+    return i;
+}
 
-        function prev() {
-            let i = q - 2;
-            while (i >= 0 && !isValidCard(i)) i -= 2;
-            if (i < 0) {
-                i = answers.length - 2;
-                while (i >= 0 && !isValidCard(i)) i -= 2;
-            }
-            q = i;
-            showQ();
+function prev() {
+    let i = q - 2;
+
+    while (i >= 0 && !isValidCard(i)) {
+        i -= 2;
+    }
+
+    if (i < 0) {
+        i = lastQuestionIndex();
+
+        while (i >= 0 && !isValidCard(i)) {
+            i -= 2;
         }
+    }
 
+    q = i;
+    showQ();
+}
         function start() { q = 0; showQ(); }
 
         function isValidCard(i) {
@@ -306,6 +318,11 @@ modalContent.addEventListener("click", function (e) {
 
         /* ===== DISPLAY ===== */
         function showQ() {
+
+if (q + 1 >= answers.length) {
+    q = 0;
+}
+            
             if (!answers.length) return;
             let t = answers[q];
             if (memorized[q]) t += " [MEM]";
@@ -385,6 +402,9 @@ function doJump() {
         /* ===== ACTIONS ===== */  
         
 function showAnswer() {
+
+if (q + 1 >= answers.length) return;
+    
     if (answerVisible) {
         aEl.innerHTML = "";
         answerVisible = false;
@@ -429,7 +449,11 @@ function randomCard() {
         function loadFile(e) {
             const r = new FileReader();
             r.onload = () => {
-                answers = r.result.split("\n");
+answers = r.result
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line !== "");
+                
                 memorized = Array(answers.length).fill(false);
                 correct = Array(answers.length).fill(false);
                 wrong = Array(answers.length).fill(false);
